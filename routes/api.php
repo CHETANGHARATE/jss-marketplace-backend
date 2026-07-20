@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AddressController;
+use App\Http\Controllers\Api\V1\Admin\AdminOrderController;
 use App\Http\Controllers\Api\V1\AttributeController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BrandController;
@@ -7,6 +9,7 @@ use App\Http\Controllers\Api\V1\CartController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\InventoryController;
 use App\Http\Controllers\Api\V1\MediaController;
+use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\SettingController;
 use App\Http\Controllers\Api\V1\WarehouseController;
@@ -78,14 +81,32 @@ Route::prefix('v1')->group(function () {
         Route::middleware('auth:sanctum')->post('/merge', [CartController::class, 'merge']);
     });
 
-    // Protected Customer Wishlist Endpoints (Module 5)
-    Route::middleware('auth:sanctum')->prefix('wishlist')->group(function () {
-        Route::get('/', [WishlistController::class, 'index']);
-        Route::post('/toggle', [WishlistController::class, 'toggle']);
-        Route::delete('/{productId}', [WishlistController::class, 'destroy']);
+    // Protected Customer Addresses (Module 6)
+    Route::middleware('auth:sanctum')->prefix('addresses')->group(function () {
+        Route::get('/', [AddressController::class, 'index']);
+        Route::post('/', [AddressController::class, 'store']);
+        Route::delete('/{id}', [AddressController::class, 'destroy']);
     });
 
-    // Protected Admin Operations (Modules 1, 2, 3, 4, 5)
+    // Protected Customer Checkout & Orders Engine (Module 6)
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::post('/checkout/process', [OrderController::class, 'checkout']);
+
+        Route::prefix('orders')->group(function () {
+            Route::get('/', [OrderController::class, 'index']);
+            Route::get('/{orderNumber}', [OrderController::class, 'show']);
+            Route::post('/{orderNumber}/cancel', [OrderController::class, 'cancel']);
+        });
+
+        // Protected Customer Wishlist Endpoints (Module 5)
+        Route::prefix('wishlist')->group(function () {
+            Route::get('/', [WishlistController::class, 'index']);
+            Route::post('/toggle', [WishlistController::class, 'toggle']);
+            Route::delete('/{productId}', [WishlistController::class, 'destroy']);
+        });
+    });
+
+    // Protected Admin Operations (Modules 1, 2, 3, 4, 5, 6)
     Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(function () {
         // System Settings Admin
         Route::put('/settings', [SettingController::class, 'update']);
@@ -127,5 +148,10 @@ Route::prefix('v1')->group(function () {
 
         // Abandoned Carts Report (Module 5)
         Route::get('/carts/abandoned', [CartController::class, 'abandonedCarts']);
+
+        // Admin Order Management (Module 6)
+        Route::get('/orders', [AdminOrderController::class, 'index']);
+        Route::get('/orders/{id}', [AdminOrderController::class, 'show']);
+        Route::patch('/orders/{id}/status', [AdminOrderController::class, 'updateStatus']);
     });
 });
