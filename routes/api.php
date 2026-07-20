@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\AddressController;
 use App\Http\Controllers\Api\V1\Admin\AdminAnalyticsController;
 use App\Http\Controllers\Api\V1\Admin\AdminOrderController;
 use App\Http\Controllers\Api\V1\Admin\AdminPaymentController;
+use App\Http\Controllers\Api\V1\Admin\AdminPromotionController;
 use App\Http\Controllers\Api\V1\Admin\AdminReviewController;
 use App\Http\Controllers\Api\V1\Admin\AdminShippingController;
 use App\Http\Controllers\Api\V1\Admin\AdminVendorController;
@@ -18,6 +19,7 @@ use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\PaymentController;
 use App\Http\Controllers\Api\V1\ProductController;
+use App\Http\Controllers\Api\V1\PromotionController;
 use App\Http\Controllers\Api\V1\QuestionController;
 use App\Http\Controllers\Api\V1\ReviewController;
 use App\Http\Controllers\Api\V1\SettingController;
@@ -81,6 +83,10 @@ Route::prefix('v1')->group(function () {
     Route::get('/stores', [VendorStoreController::class, 'index']);
     Route::get('/stores/{slug}', [VendorStoreController::class, 'show']);
 
+    // Public Promotions & Coupons Endpoints (Module 12)
+    Route::post('/promotions/coupons/apply', [PromotionController::class, 'applyCoupon']);
+    Route::get('/promotions/flash-sales', [PromotionController::class, 'flashSales']);
+
     // Public Product Reviews & Questions (Module 9)
     Route::get('/products/{id}/reviews', [ReviewController::class, 'index']);
     Route::get('/products/{id}/questions', [QuestionController::class, 'index']);
@@ -108,7 +114,7 @@ Route::prefix('v1')->group(function () {
     Route::post('/shipping/calculate', [ShippingController::class, 'calculate']);
     Route::get('/shipments/track/{trackingNumber}', [ShippingController::class, 'track']);
 
-    // Protected Customer & Vendor Operations (Modules 5-11)
+    // Protected Customer & Vendor Operations (Modules 5-12)
     Route::middleware('auth:sanctum')->group(function () {
         // Customer Addresses
         Route::prefix('addresses')->group(function () {
@@ -160,6 +166,9 @@ Route::prefix('v1')->group(function () {
             Route::post('/read-all', [NotificationController::class, 'markAllAsRead']);
         });
 
+        // Customer Loyalty Points (Module 12)
+        Route::get('/loyalty/points', [PromotionController::class, 'loyaltyPoints']);
+
         // Vendor Dashboard & Store Operations (Module 11)
         Route::prefix('vendor')->group(function () {
             Route::post('/store', [VendorStoreController::class, 'register']);
@@ -172,7 +181,7 @@ Route::prefix('v1')->group(function () {
         });
     });
 
-    // Protected Admin Operations (Modules 1-11)
+    // Protected Admin Operations (Modules 1-12)
     Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(function () {
         // System Settings Admin
         Route::put('/settings', [SettingController::class, 'update']);
@@ -265,5 +274,12 @@ Route::prefix('v1')->group(function () {
         Route::patch('/vendor/stores/{id}/kyc', [AdminVendorController::class, 'verifyKYC']);
         Route::get('/vendor/settlements', [AdminVendorController::class, 'settlements']);
         Route::patch('/vendor/settlements/{id}/process', [AdminVendorController::class, 'processSettlement']);
+
+        // Admin Promotions, Coupons & Flash Sales (Module 12)
+        Route::get('/coupons', [AdminPromotionController::class, 'indexCoupons']);
+        Route::post('/coupons', [AdminPromotionController::class, 'storeCoupon']);
+        Route::delete('/coupons/{id}', [AdminPromotionController::class, 'destroyCoupon']);
+        Route::get('/flash-sales', [AdminPromotionController::class, 'indexFlashSales']);
+        Route::post('/flash-sales', [AdminPromotionController::class, 'storeFlashSale']);
     });
 });

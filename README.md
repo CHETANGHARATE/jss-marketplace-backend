@@ -38,10 +38,12 @@ Production-ready backend API service powering the JSS Solutions Multi Vendor Mar
 - User notifications engine (`user_notifications`), admin BI analytics (`AnalyticsService`), CSV report exports (`ReportExportService`), and separate `audit_logs` & `activity_logs`.
 
 ### Module 11: Multi-Vendor Marketplace Management
-- **Vendor Registration & KYC Verification**: Vendors register storefront profiles (`vendor_stores`). Admins moderate KYC documents (`kyc_status`) to activate stores.
-- **Vendor Storefronts**: Public storefront URLs (`/api/v1/stores/{slug}`) displaying vendor info and seller products.
-- **Automatic Commission Engine (`VendorCommissionService`)**: Upon order payment capture (`PaymentSuccessEvent`), automatically calculates marketplace commission (e.g. 10%), credits net earnings to the vendor wallet, and logs transaction ledgers.
-- **Vendor Wallet & Payout Settlements**: Vendor wallets (`vendor_wallets`) tracking balances and withdrawal requests (`SET-YYYYMMDD-XXXXX`).
+- Vendor storefronts (`vendor_stores`), KYC verification, automated commission engine (`VendorCommissionService`), vendor wallets (`vendor_wallets`), and payout settlements (`SET-YYYYMMDD-XXXXX`).
+
+### Module 12: Promotions, Coupons & Marketing Automation
+- **Coupon & Rule-Based Discount Engine (`PromotionEngineService`)**: Percentage or fixed-amount discounts with minimum order thresholds, max discount caps, global usage limits, and per-user usage caps (`coupons`, `coupon_usages`).
+- **Flash Sales Campaigns (`FlashSaleService`)**: Time-bound flash sale campaigns (`flash_sales`, `flash_sale_products`) calculating live discounted flash prices.
+- **Loyalty Program & Referral System**: Automatic loyalty point accrual (1 point per 10 currency spent) and referrer rewards on referee purchases (`loyalty_points`, `referrals`).
 
 ---
 
@@ -52,27 +54,25 @@ Production-ready backend API service powering the JSS Solutions Multi Vendor Mar
 - `POST /api/v1/auth/login` - Login via email/phone
 - `GET /api/v1/auth/me` - User profile (*Protected*)
 
-### Public Catalog & Stores (Modules 2, 3, 11)
+### Public Catalog, Stores & Promotions (Modules 2, 3, 11, 12)
 - `GET /api/v1/categories` - Fetch category tree
 - `GET /api/v1/products` - Filtered product catalog
 - `GET /api/v1/stores` - List active vendor stores
-- `GET /api/v1/stores/{slug}` - Public vendor storefront & products
+- `POST /api/v1/promotions/coupons/apply` - Validate & calculate coupon discount
+- `GET /api/v1/promotions/flash-sales` - View active flash sale campaigns
 
-### Protected Vendor Operations (Module 11 - *Sanctum + Seller*)
-- `POST /api/v1/vendor/store` - Register vendor store profile
-- `GET /api/v1/vendor/store` - Current vendor store details
-- `GET /api/v1/vendor/dashboard` - Vendor dashboard metrics
-- `GET /api/v1/vendor/products` - Vendor's owned products
-- `GET /api/v1/vendor/orders` - Vendor's line item orders
-- `GET /api/v1/vendor/wallet` - Vendor wallet balance & transaction ledger
-- `POST /api/v1/vendor/settlements/request` - Request payout settlement
+### Protected Customer Operations (Modules 5-12 - *Sanctum*)
+- `GET /api/v1/cart` - Fetch active cart
+- `POST /api/v1/checkout/process` - Execute checkout
+- `GET /api/v1/loyalty/points` - Customer loyalty points balance
 
 ### Admin Management (*Protected: Sanctum + Admin*)
 - `GET /api/v1/admin/analytics/overview` - Admin dashboard BI overview
-- `GET /api/v1/admin/vendor/stores` - List vendor stores
-- `PATCH /api/v1/admin/vendor/stores/{id}/kyc` - Moderate vendor KYC & activate store
-- `GET /api/v1/admin/vendor/settlements` - List payout settlement requests
-- `PATCH /api/v1/admin/vendor/settlements/{id}/process` - Process payout settlement (`paid`/`rejected`)
+- `GET /api/v1/admin/coupons` - List coupons
+- `POST /api/v1/admin/coupons` - Create new coupon code
+- `DELETE /api/v1/admin/coupons/{id}` - Delete coupon
+- `GET /api/v1/admin/flash-sales` - List flash sales
+- `POST /api/v1/admin/flash-sales` - Create flash sale campaign
 
 ---
 
