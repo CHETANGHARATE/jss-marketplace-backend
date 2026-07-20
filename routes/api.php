@@ -3,12 +3,14 @@
 use App\Http\Controllers\Api\V1\AttributeController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BrandController;
+use App\Http\Controllers\Api\V1\CartController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\InventoryController;
 use App\Http\Controllers\Api\V1\MediaController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\SettingController;
 use App\Http\Controllers\Api\V1\WarehouseController;
+use App\Http\Controllers\Api\V1\WishlistController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -64,7 +66,26 @@ Route::prefix('v1')->group(function () {
     Route::get('/warehouses', [WarehouseController::class, 'index']);
     Route::get('/warehouses/{id}', [WarehouseController::class, 'show']);
 
-    // Protected Admin Operations (Modules 1, 2, 3, 4)
+    // Public / Guest Shopping Cart Endpoints (Module 5)
+    Route::prefix('cart')->group(function () {
+        Route::get('/', [CartController::class, 'index']);
+        Route::post('/items', [CartController::class, 'addItem']);
+        Route::put('/items/{id}', [CartController::class, 'updateItem']);
+        Route::delete('/items/{id}', [CartController::class, 'removeItem']);
+        Route::post('/clear', [CartController::class, 'clear']);
+        
+        // Merge guest cart on login
+        Route::middleware('auth:sanctum')->post('/merge', [CartController::class, 'merge']);
+    });
+
+    // Protected Customer Wishlist Endpoints (Module 5)
+    Route::middleware('auth:sanctum')->prefix('wishlist')->group(function () {
+        Route::get('/', [WishlistController::class, 'index']);
+        Route::post('/toggle', [WishlistController::class, 'toggle']);
+        Route::delete('/{productId}', [WishlistController::class, 'destroy']);
+    });
+
+    // Protected Admin Operations (Modules 1, 2, 3, 4, 5)
     Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(function () {
         // System Settings Admin
         Route::put('/settings', [SettingController::class, 'update']);
@@ -103,5 +124,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/inventories/transfer', [InventoryController::class, 'transfer']);
         Route::get('/inventories/low-stock', [InventoryController::class, 'lowStockReport']);
         Route::get('/stock-movements', [InventoryController::class, 'movements']);
+
+        // Abandoned Carts Report (Module 5)
+        Route::get('/carts/abandoned', [CartController::class, 'abandonedCarts']);
     });
 });

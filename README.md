@@ -22,8 +22,14 @@ Production-ready backend API service powering the JSS Solutions Multi Vendor Mar
 ### Module 4: Inventory & Warehouse Management
 - **Multi-Warehouse Fulfillment**: Fulfillment centers (`warehouses` table) with contact details, primary flags, addresses, and soft deletes.
 - **Warehouse Inventory Tracking**: Warehouse-product inventory mapping (`quantity`, `reserved_quantity`, `available_quantity`, `low_stock_threshold`).
-- **Stock Movement Audit Ledger**: Every stock addition, deduction, audit adjustment, reservation, release, or transfer records a immutable ledger entry in `stock_movements` table.
-- **Thread-Safe Inventory Service**: `InventoryService` enforces atomic DB transactions with row-level pessimistic locking (`lockForUpdate`), automatic product stock sync (`products.stock_quantity` & `products.stock_status`).
+- **Stock Movement Audit Ledger**: Immutable audit trail ledger entries for all stock operations in `stock_movements` table.
+
+### Module 5: Shopping Cart & Wishlist System
+- **Dual Session Cart Support**: Single active cart per authenticated user or guest session identified via `X-Session-ID` header.
+- **Inventory Stock Validation**: Item additions and quantity updates are validated against real-time physical stock (`products.stock_quantity`).
+- **Guest-to-User Cart Merge**: `CartMergeService` merges guest cart items into authenticated user accounts upon login.
+- **Customer Wishlist Engine**: Toggle add/remove items to user wishlists with instant feedback.
+- **Abandoned Cart Analytics**: Admin report for carts abandoned >24 hours with active items.
 
 ---
 
@@ -39,27 +45,26 @@ Production-ready backend API service powering the JSS Solutions Multi Vendor Mar
 
 ### Public Catalog & Products (Modules 2 & 3)
 - `GET /api/v1/categories` - Fetch category tree
-- `GET /api/v1/categories/{slug}` - Category details
 - `GET /api/v1/brands` - Active brands list
-- `GET /api/v1/attributes` - Filterable attributes
 - `GET /api/v1/products` - Filtered & paginated product catalog
-- `GET /api/v1/products/featured` - Featured products
-- `GET /api/v1/products/trending` - Trending products
 - `GET /api/v1/products/{slug}` - Product detail page
 
-### Public Warehouses (Module 4)
-- `GET /api/v1/warehouses` - List active fulfillment warehouses
-- `GET /api/v1/warehouses/{id}` - Warehouse details
+### Shopping Cart & Wishlist (Module 5)
+- `GET /api/v1/cart` - Fetch current cart (uses `auth:sanctum` or `X-Session-ID` header)
+- `POST /api/v1/cart/items` - Add item to cart with stock validation
+- `PUT /api/v1/cart/items/{id}` - Update item quantity in cart
+- `DELETE /api/v1/cart/items/{id}` - Remove item from cart
+- `POST /api/v1/cart/clear` - Clear all items from cart
+- `POST /api/v1/cart/merge` - Merge guest cart into user account (*Protected*)
+- `GET /api/v1/wishlist` - View user wishlist (*Protected*)
+- `POST /api/v1/wishlist/toggle` - Toggle product in user wishlist (*Protected*)
+- `DELETE /api/v1/wishlist/{productId}` - Remove product from wishlist (*Protected*)
 
-### Admin & Inventory Management (*Protected: Sanctum + Admin*)
-- `POST /api/v1/admin/warehouses` - Create warehouse
-- `DELETE /api/v1/admin/warehouses/{id}` - SoftDelete warehouse
-- `GET /api/v1/admin/inventories` - Inventory list (Filterable by `low_stock=true`, `warehouse_id`, `product_id`)
+### Admin Management (*Protected: Sanctum + Admin*)
+- `POST /api/v1/admin/products` - Create product
 - `POST /api/v1/admin/inventories/add-stock` - Inbound stock addition to warehouse
-- `POST /api/v1/admin/inventories/adjust-stock` - Audit stock adjustment
 - `POST /api/v1/admin/inventories/transfer` - Inter-warehouse stock transfer
-- `GET /api/v1/admin/inventories/low-stock` - Low stock alert report
-- `GET /api/v1/admin/stock-movements` - Stock movement audit trail ledger
+- `GET /api/v1/admin/carts/abandoned` - Abandoned carts report
 
 ---
 
