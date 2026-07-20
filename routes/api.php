@@ -1,6 +1,10 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AttributeController;
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\BrandController;
+use App\Http\Controllers\Api\V1\CategoryController;
+use App\Http\Controllers\Api\V1\MediaController;
 use App\Http\Controllers\Api\V1\SettingController;
 use Illuminate\Support\Facades\Route;
 
@@ -34,11 +38,39 @@ Route::prefix('v1')->group(function () {
         });
     });
 
-    // System Settings Endpoints (Public Settings API)
+    // Public System Settings
     Route::get('/settings', [SettingController::class, 'index']);
-    
-    // Admin Only Settings Operations
+
+    // Public Catalog Foundation Endpoints (Module 2)
+    Route::get('/categories', [CategoryController::class, 'index']);
+    Route::get('/categories/{slug}', [CategoryController::class, 'show']);
+
+    Route::get('/brands', [BrandController::class, 'index']);
+    Route::get('/brands/{slug}', [BrandController::class, 'show']);
+
+    Route::get('/attributes', [AttributeController::class, 'index']);
+    Route::get('/attributes/{id}', [AttributeController::class, 'show']);
+
+    // Protected Admin Operations (Module 1 & 2)
     Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(function () {
+        // System Settings Admin
         Route::put('/settings', [SettingController::class, 'update']);
+
+        // Category Management
+        Route::post('/categories', [CategoryController::class, 'store']);
+        Route::put('/categories/{id}', [CategoryController::class, 'update']);
+        Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
+
+        // Brand Management
+        Route::post('/brands', [BrandController::class, 'store']);
+        Route::put('/brands/{id}', [BrandController::class, 'update']);
+        Route::delete('/brands/{id}', [BrandController::class, 'destroy']);
+
+        // Attribute Management
+        Route::post('/attributes', [AttributeController::class, 'store']);
+        Route::delete('/attributes/{id}', [AttributeController::class, 'destroy']);
+
+        // Media Upload
+        Route::post('/media/upload', [MediaController::class, 'upload']);
     });
 });
