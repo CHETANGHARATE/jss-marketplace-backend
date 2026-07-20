@@ -44,14 +44,21 @@ Production-ready backend API service powering the JSS Solutions Multi Vendor Mar
 - Rule-based discount engine (`PromotionEngineService`), flash sale campaigns (`FlashSaleService`), customer loyalty points, and referral rewards.
 
 ### Module 13: Search, Recommendations & Personalization
-- **Pluggable Search Driver Architecture (`SearchDriverInterface`)**: Native database driver (`DatabaseSearchDriver`) with fulltext text searching, dynamic facets aggregation (category counts, brand counts, min/max price bounds), and Meilisearch driver foundation (`MeilisearchDriver`).
-- **Search Autocomplete & Query Analytics**: Quick autocomplete suggestions (`/api/v1/search/autocomplete`) and query logging (`search_logs`).
-- **Recommendation Engine (`RecommendationService`)**: Category & brand related products, trending products, and personalized customer recommendations based on wishlist categories and purchase history.
-- **Search Synonyms & Admin BI Analytics**: Search query popularity, zero-result query tracking, and search synonyms management (`search_synonyms`).
+- Pluggable search driver architecture (`SearchDriverInterface`), native database driver (`DatabaseSearchDriver`) with dynamic facets, autocomplete query suggestions (`/api/v1/search/autocomplete`), and recommendation services (`RecommendationService`).
+
+### Module 14: Performance, Security & DevOps Infrastructure
+- **System Health Diagnostics (`GET /api/v1/health`)**: Verifies MySQL database connectivity, Redis cache layer status, and available disk storage.
+- **Scheduled Maintenance Jobs (`routes/console.php`)**: Automated daily cleanup of abandoned carts (`carts:clean-expired`) and daily BI analytics pre-computation (`analytics:generate-daily`).
+- **Security Hardening Middleware (`SecurityHeadersMiddleware`)**: Enforces HTTP security headers (`X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Strict-Transport-Security`).
+- **Docker & Container Stack**: Multi-stage `Dockerfile` and `docker-compose.yml` orchestrating App (Laravel FPM), Nginx, MySQL 8.0, and Redis containers.
+- **CI/CD Pipeline (`.github/workflows/ci.yml`)**: Automated GitHub Actions workflow for linting, database migrations, and feature testing.
 
 ---
 
 ## API Endpoints Reference
+
+### Public Health & Diagnostics (Module 14)
+- `GET /api/v1/health` - System health diagnostic status (DB, Redis, Storage)
 
 ### Public Authentication & Settings (Module 1)
 - `POST /api/v1/auth/register` - Register account
@@ -66,7 +73,7 @@ Production-ready backend API service powering the JSS Solutions Multi Vendor Mar
 - `GET /api/v1/products/{id}/related` - Related product recommendations
 - `GET /api/v1/recommendations/trending` - Trending product recommendations
 
-### Protected Customer Operations (Modules 5-13 - *Sanctum*)
+### Protected Customer Operations (Modules 5-14 - *Sanctum*)
 - `GET /api/v1/cart` - Fetch active cart
 - `POST /api/v1/checkout/process` - Execute checkout
 - `GET /api/v1/recommendations/personalized` - Customer personalized recommendations
@@ -75,16 +82,22 @@ Production-ready backend API service powering the JSS Solutions Multi Vendor Mar
 - `GET /api/v1/admin/analytics/overview` - Admin dashboard BI overview
 - `GET /api/v1/admin/search/analytics` - Search queries analytics & zero-result terms
 - `GET /api/v1/admin/search/synonyms` - Search synonyms list
-- `POST /api/v1/admin/search/synonyms` - Add search synonym mapping
 
 ---
 
 ## Installation & Setup Instructions
 
+### Local Environment
 ```bash
 composer install
 cp .env.example .env
 php artisan key:generate
 php artisan migrate:fresh --seed
 php artisan test
+```
+
+### Docker Deployment
+```bash
+docker-compose up -d --build
+docker-compose exec app php artisan migrate --seed
 ```

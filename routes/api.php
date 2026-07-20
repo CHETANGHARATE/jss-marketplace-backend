@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BrandController;
 use App\Http\Controllers\Api\V1\CartController;
 use App\Http\Controllers\Api\V1\CategoryController;
+use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\InventoryController;
 use App\Http\Controllers\Api\V1\MediaController;
 use App\Http\Controllers\Api\V1\NotificationController;
@@ -43,6 +44,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
     
+    // System Health Check Diagnostic (Module 14)
+    Route::get('/health', [HealthController::class, 'check']);
+
     // Authentication Endpoints (Rate Limited to 6 attempts/minute)
     Route::prefix('auth')->group(function () {
         Route::middleware('throttle:6,1')->group(function () {
@@ -122,7 +126,7 @@ Route::prefix('v1')->group(function () {
     Route::post('/shipping/calculate', [ShippingController::class, 'calculate']);
     Route::get('/shipments/track/{trackingNumber}', [ShippingController::class, 'track']);
 
-    // Protected Customer Operations (Modules 5-13)
+    // Protected Customer Operations (Modules 5-14)
     Route::middleware('auth:sanctum')->group(function () {
         // Customer Addresses
         Route::prefix('addresses')->group(function () {
@@ -190,7 +194,7 @@ Route::prefix('v1')->group(function () {
         });
     });
 
-    // Protected Admin Operations (Modules 1-13)
+    // Protected Admin Operations (Modules 1-14)
     Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(function () {
         // System Settings Admin
         Route::put('/settings', [SettingController::class, 'update']);
