@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\AddressController;
 use App\Http\Controllers\Api\V1\Admin\AdminOrderController;
 use App\Http\Controllers\Api\V1\Admin\AdminPaymentController;
+use App\Http\Controllers\Api\V1\Admin\AdminReviewController;
 use App\Http\Controllers\Api\V1\Admin\AdminShippingController;
 use App\Http\Controllers\Api\V1\AttributeController;
 use App\Http\Controllers\Api\V1\AuthController;
@@ -14,8 +15,11 @@ use App\Http\Controllers\Api\V1\MediaController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\PaymentController;
 use App\Http\Controllers\Api\V1\ProductController;
+use App\Http\Controllers\Api\V1\QuestionController;
+use App\Http\Controllers\Api\V1\ReviewController;
 use App\Http\Controllers\Api\V1\SettingController;
 use App\Http\Controllers\Api\V1\ShippingController;
+use App\Http\Controllers\Api\V1\SupportTicketController;
 use App\Http\Controllers\Api\V1\WarehouseController;
 use App\Http\Controllers\Api\V1\WishlistController;
 use Illuminate\Support\Facades\Route;
@@ -69,6 +73,10 @@ Route::prefix('v1')->group(function () {
     Route::get('/products/trending', [ProductController::class, 'trending']);
     Route::get('/products/{slug}', [ProductController::class, 'show']);
 
+    // Public Product Reviews & Questions (Module 9)
+    Route::get('/products/{id}/reviews', [ReviewController::class, 'index']);
+    Route::get('/products/{id}/questions', [QuestionController::class, 'index']);
+
     // Public Warehouse Endpoints (Module 4)
     Route::get('/warehouses', [WarehouseController::class, 'index']);
     Route::get('/warehouses/{id}', [WarehouseController::class, 'show']);
@@ -92,7 +100,7 @@ Route::prefix('v1')->group(function () {
     Route::post('/shipping/calculate', [ShippingController::class, 'calculate']);
     Route::get('/shipments/track/{trackingNumber}', [ShippingController::class, 'track']);
 
-    // Protected Customer Operations (Modules 5, 6, 7, 8)
+    // Protected Customer Operations (Modules 5-9)
     Route::middleware('auth:sanctum')->group(function () {
         // Customer Addresses
         Route::prefix('addresses')->group(function () {
@@ -123,9 +131,22 @@ Route::prefix('v1')->group(function () {
             Route::post('/toggle', [WishlistController::class, 'toggle']);
             Route::delete('/{productId}', [WishlistController::class, 'destroy']);
         });
+
+        // Customer Reviews & Q&A (Module 9)
+        Route::post('/reviews', [ReviewController::class, 'store']);
+        Route::post('/reviews/{id}/report', [ReviewController::class, 'report']);
+        Route::post('/questions', [QuestionController::class, 'store']);
+
+        // Customer Support Tickets (Module 9)
+        Route::prefix('support/tickets')->group(function () {
+            Route::get('/', [SupportTicketController::class, 'index']);
+            Route::post('/', [SupportTicketController::class, 'store']);
+            Route::get('/{ticketNumber}', [SupportTicketController::class, 'show']);
+            Route::post('/{ticketNumber}/reply', [SupportTicketController::class, 'reply']);
+        });
     });
 
-    // Protected Admin Operations (Modules 1-8)
+    // Protected Admin Operations (Modules 1-9)
     Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(function () {
         // System Settings Admin
         Route::put('/settings', [SettingController::class, 'update']);
@@ -186,5 +207,15 @@ Route::prefix('v1')->group(function () {
         Route::get('/shipments', [AdminShippingController::class, 'shipments']);
         Route::post('/shipments/create', [AdminShippingController::class, 'createShipment']);
         Route::patch('/shipments/{id}/status', [AdminShippingController::class, 'updateStatus']);
+
+        // Admin Review Moderation & Q&A Answers (Module 9)
+        Route::get('/reviews', [AdminReviewController::class, 'index']);
+        Route::patch('/reviews/{id}/moderate', [AdminReviewController::class, 'moderate']);
+        Route::post('/questions/{id}/answer', [AdminReviewController::class, 'answerQuestion']);
+
+        // Admin Support Tickets (Module 9)
+        Route::get('/support/tickets', [AdminReviewController::class, 'tickets']);
+        Route::post('/support/tickets/{id}/reply', [AdminReviewController::class, 'ticketReply']);
+        Route::patch('/support/tickets/{id}/status', [AdminReviewController::class, 'updateTicketStatus']);
     });
 });

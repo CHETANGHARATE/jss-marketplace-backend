@@ -14,7 +14,7 @@ Production-ready backend API service powering the JSS Solutions Multi Vendor Mar
 - Unlimited nesting categories (multilingual `en`, `hi`, `mr`), Brands, Attributes & Values, and Polymorphic Media Library.
 
 ### Module 3: Product Management Engine
-- **Product Core & Pricing Engine**: Original price, offer price, cost price, automatic discount calculation, stock status, rating & reviews count.
+- Product core & pricing engine, status approval workflow, multi-parameter filtering engine.
 
 ### Module 4: Inventory & Warehouse Management
 - Multi-warehouse fulfillment centers with stock movement audit ledgers (`stock_movements`).
@@ -29,10 +29,14 @@ Production-ready backend API service powering the JSS Solutions Multi Vendor Mar
 - Pluggable gateway contract (`PaymentGatewayInterface`), Razorpay primary integration, Stripe foundation, idempotent webhooks, and refund processing.
 
 ### Module 8: Shipping, Delivery & Logistics Engine
-- **Geographic Shipping Zones & Methods**: Shipping rules based on pincodes/states (`ShippingZone`) and cost calculations by base rate + weight (`ShippingCalculatorService`).
-- **Provider-Independent Courier Driver Architecture**: `CourierDriverInterface` contract implemented by `DelhiveryDriver` and `LocalCourierDriver` managed via `CourierManager`.
-- **Shipment Management & AWB Generation**: Unique shipment numbers (`SHP-YYYYMMDD-XXXXX`), AWB tracking labels, and real-time tracking logs.
-- **Shipment Timeline & Events**: Detailed audit logs (`shipment_logs`) and `ShipmentStatusUpdatedEvent` listeners automatically synchronizing order statuses to `shipped` or `delivered`.
+- Geographic shipping zones, `CourierDriverInterface` (Delhivery & Local courier drivers), AWB tracking, and automated order status listeners.
+
+### Module 9: Customer Reviews, Ratings & Support System
+- **Verified Purchase Reviews**: Only customers with delivered/confirmed orders for a product can submit 1-5 star ratings & reviews.
+- **Review Moderation & Aggregate Statistics**: Moderation workflow (`pending`, `approved`, `rejected`). Dispatches `ReviewApprovedEvent` to recalculate `products.rating` average and `products.reviews_count`.
+- **Customer Product Q&A**: Public product question submission with admin/seller answers.
+- **Review Reporting**: Mechanism for customers to flag inappropriate or abusive reviews.
+- **Threaded Support Tickets**: Multi-category support ticket system (`TKT-YYYYMMDD-XXXXX`) supporting threaded conversation replies between customers and support admins.
 
 ---
 
@@ -43,32 +47,31 @@ Production-ready backend API service powering the JSS Solutions Multi Vendor Mar
 - `POST /api/v1/auth/login` - Login via email/phone
 - `GET /api/v1/auth/me` - User profile (*Protected*)
 
-### Public Catalog & Products (Modules 2 & 3)
+### Public Catalog & Products (Modules 2, 3, 9)
 - `GET /api/v1/categories` - Fetch category tree
-- `GET /api/v1/products` - Filtered & paginated product catalog
+- `GET /api/v1/products` - Filtered product catalog
+- `GET /api/v1/products/{id}/reviews` - Approved reviews & rating summary
+- `GET /api/v1/products/{id}/questions` - Answered product Q&As
 
-### Public Shipping & Tracking (Module 8)
-- `POST /api/v1/shipping/calculate` - Calculate shipping cost by destination pincode
-- `GET /api/v1/shipments/track/{trackingNumber}` - Public AWB tracking timeline
-
-### Protected Customer Operations (Modules 5, 6, 7, 8 - *Sanctum*)
-- `GET /api/v1/cart` - Fetch current active cart
-- `POST /api/v1/checkout/process` - Execute checkout & place order
-- `POST /api/v1/payments/initiate` - Initiate gateway order for frontend popup checkout
-- `POST /api/v1/payments/verify` - Verify payment signature & capture payment
-- `GET /api/v1/orders` - Customer order history
-- `GET /api/v1/orders/{orderNumber}/shipment` - Customer shipment details & tracking timeline
+### Protected Customer Operations (Modules 5-9 - *Sanctum*)
+- `GET /api/v1/cart` - Fetch active cart
+- `POST /api/v1/checkout/process` - Execute checkout
+- `POST /api/v1/payments/initiate` - Initiate gateway checkout popup
+- `POST /api/v1/payments/verify` - Verify payment signature
+- `POST /api/v1/reviews` - Submit review for verified purchase
+- `POST /api/v1/questions` - Ask product question
+- `POST /api/v1/support/tickets` - Create support ticket
+- `GET /api/v1/support/tickets/{ticketNumber}` - View ticket conversation
+- `POST /api/v1/support/tickets/{ticketNumber}/reply` - Reply to support ticket
 
 ### Admin Management (*Protected: Sanctum + Admin*)
 - `GET /api/v1/admin/orders` - List all marketplace orders
 - `GET /api/v1/admin/payments` - List all payments
-- `GET /api/v1/admin/shipping-zones` - List shipping zones
-- `POST /api/v1/admin/shipping-zones` - Add shipping zone
-- `GET /api/v1/admin/couriers` - List courier partners
-- `POST /api/v1/admin/couriers` - Add courier partner
-- `GET /api/v1/admin/shipments` - List all marketplace shipments
-- `POST /api/v1/admin/shipments/create` - Create shipment & generate AWB label
-- `PATCH /api/v1/admin/shipments/{id}/status` - Update shipment status and location log
+- `GET /api/v1/admin/reviews` - Review moderation queue
+- `PATCH /api/v1/admin/reviews/{id}/moderate` - Moderate review (`approved`/`rejected`)
+- `POST /api/v1/admin/questions/{id}/answer` - Answer product question
+- `GET /api/v1/admin/support/tickets` - Support tickets queue
+- `POST /api/v1/admin/support/tickets/{id}/reply` - Admin reply to ticket
 
 ---
 
