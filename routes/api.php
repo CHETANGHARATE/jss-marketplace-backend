@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\AddressController;
 use App\Http\Controllers\Api\V1\Admin\AdminOrderController;
 use App\Http\Controllers\Api\V1\Admin\AdminPaymentController;
+use App\Http\Controllers\Api\V1\Admin\AdminShippingController;
 use App\Http\Controllers\Api\V1\AttributeController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BrandController;
@@ -14,6 +15,7 @@ use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\PaymentController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\SettingController;
+use App\Http\Controllers\Api\V1\ShippingController;
 use App\Http\Controllers\Api\V1\WarehouseController;
 use App\Http\Controllers\Api\V1\WishlistController;
 use Illuminate\Support\Facades\Route;
@@ -86,7 +88,11 @@ Route::prefix('v1')->group(function () {
     // Public Gateway Webhook Listener (Module 7)
     Route::post('/payments/webhook/{gateway}', [PaymentController::class, 'webhook']);
 
-    // Protected Customer Operations (Modules 5, 6, 7)
+    // Public Shipping Rate Calculation & AWB Tracking (Module 8)
+    Route::post('/shipping/calculate', [ShippingController::class, 'calculate']);
+    Route::get('/shipments/track/{trackingNumber}', [ShippingController::class, 'track']);
+
+    // Protected Customer Operations (Modules 5, 6, 7, 8)
     Route::middleware('auth:sanctum')->group(function () {
         // Customer Addresses
         Route::prefix('addresses')->group(function () {
@@ -101,6 +107,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/', [OrderController::class, 'index']);
             Route::get('/{orderNumber}', [OrderController::class, 'show']);
             Route::post('/{orderNumber}/cancel', [OrderController::class, 'cancel']);
+            Route::get('/{orderNumber}/shipment', [ShippingController::class, 'orderShipment']);
         });
 
         // Customer Payments Engine (Module 7)
@@ -118,7 +125,7 @@ Route::prefix('v1')->group(function () {
         });
     });
 
-    // Protected Admin Operations (Modules 1-7)
+    // Protected Admin Operations (Modules 1-8)
     Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(function () {
         // System Settings Admin
         Route::put('/settings', [SettingController::class, 'update']);
@@ -170,5 +177,14 @@ Route::prefix('v1')->group(function () {
         Route::get('/payments', [AdminPaymentController::class, 'index']);
         Route::get('/payments/logs', [AdminPaymentController::class, 'logs']);
         Route::post('/payments/refund', [AdminPaymentController::class, 'refund']);
+
+        // Admin Shipping & Logistics Management (Module 8)
+        Route::get('/shipping-zones', [AdminShippingController::class, 'zones']);
+        Route::post('/shipping-zones', [AdminShippingController::class, 'storeZone']);
+        Route::get('/couriers', [AdminShippingController::class, 'couriers']);
+        Route::post('/couriers', [AdminShippingController::class, 'storeCourier']);
+        Route::get('/shipments', [AdminShippingController::class, 'shipments']);
+        Route::post('/shipments/create', [AdminShippingController::class, 'createShipment']);
+        Route::patch('/shipments/{id}/status', [AdminShippingController::class, 'updateStatus']);
     });
 });

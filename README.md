@@ -26,12 +26,13 @@ Production-ready backend API service powering the JSS Solutions Multi Vendor Mar
 - Customer saved addresses, atomic checkout engine, order number generation, and cancellation stock restoration.
 
 ### Module 7: Payment Gateway Driver Architecture & Transactions
-- **Pluggable Gateway Contract**: `PaymentGatewayInterface` decouples payment logic from specific providers.
-- **Razorpay Primary Integration**: Primary Indian gateway (`RazorpayGateway`) supporting order generation, HMAC-SHA256 signature verification, and webhook processing.
-- **Stripe Foundation**: Pluggable international gateway driver (`StripeGateway`).
-- **Idempotent Webhook Listener**: Public webhook handler `/api/v1/payments/webhook/{gateway}` verifying signatures and de-duplicating events via audit logs (`payment_logs`).
-- **Events & Listeners**: Dispatches `PaymentSuccessEvent` upon payment capture, automatically setting order `payment_status = paid` and `status = confirmed`.
-- **Refund Processing**: `Refund` foundation tracking admin-initiated payment refunds.
+- Pluggable gateway contract (`PaymentGatewayInterface`), Razorpay primary integration, Stripe foundation, idempotent webhooks, and refund processing.
+
+### Module 8: Shipping, Delivery & Logistics Engine
+- **Geographic Shipping Zones & Methods**: Shipping rules based on pincodes/states (`ShippingZone`) and cost calculations by base rate + weight (`ShippingCalculatorService`).
+- **Provider-Independent Courier Driver Architecture**: `CourierDriverInterface` contract implemented by `DelhiveryDriver` and `LocalCourierDriver` managed via `CourierManager`.
+- **Shipment Management & AWB Generation**: Unique shipment numbers (`SHP-YYYYMMDD-XXXXX`), AWB tracking labels, and real-time tracking logs.
+- **Shipment Timeline & Events**: Detailed audit logs (`shipment_logs`) and `ShipmentStatusUpdatedEvent` listeners automatically synchronizing order statuses to `shipped` or `delivered`.
 
 ---
 
@@ -46,23 +47,28 @@ Production-ready backend API service powering the JSS Solutions Multi Vendor Mar
 - `GET /api/v1/categories` - Fetch category tree
 - `GET /api/v1/products` - Filtered & paginated product catalog
 
-### Public Gateway Webhook Listener (Module 7)
-- `POST /api/v1/payments/webhook/{gateway}` - Public HMAC signature-verified webhook handler
+### Public Shipping & Tracking (Module 8)
+- `POST /api/v1/shipping/calculate` - Calculate shipping cost by destination pincode
+- `GET /api/v1/shipments/track/{trackingNumber}` - Public AWB tracking timeline
 
-### Protected Customer Operations (Modules 5, 6, 7 - *Sanctum*)
+### Protected Customer Operations (Modules 5, 6, 7, 8 - *Sanctum*)
 - `GET /api/v1/cart` - Fetch current active cart
 - `POST /api/v1/checkout/process` - Execute checkout & place order
 - `POST /api/v1/payments/initiate` - Initiate gateway order for frontend popup checkout
 - `POST /api/v1/payments/verify` - Verify payment signature & capture payment
-- `GET /api/v1/payments/{paymentNumber}` - Payment details
 - `GET /api/v1/orders` - Customer order history
-- `POST /api/v1/orders/{orderNumber}/cancel` - Cancel order & restore inventory stock
+- `GET /api/v1/orders/{orderNumber}/shipment` - Customer shipment details & tracking timeline
 
 ### Admin Management (*Protected: Sanctum + Admin*)
 - `GET /api/v1/admin/orders` - List all marketplace orders
 - `GET /api/v1/admin/payments` - List all payments
-- `GET /api/v1/admin/payments/logs` - Gateway audit logs
-- `POST /api/v1/admin/payments/refund` - Process order refund
+- `GET /api/v1/admin/shipping-zones` - List shipping zones
+- `POST /api/v1/admin/shipping-zones` - Add shipping zone
+- `GET /api/v1/admin/couriers` - List courier partners
+- `POST /api/v1/admin/couriers` - Add courier partner
+- `GET /api/v1/admin/shipments` - List all marketplace shipments
+- `POST /api/v1/admin/shipments/create` - Create shipment & generate AWB label
+- `PATCH /api/v1/admin/shipments/{id}/status` - Update shipment status and location log
 
 ---
 
