@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BrandController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\MediaController;
+use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\SettingController;
 use Illuminate\Support\Facades\Route;
 
@@ -51,7 +52,13 @@ Route::prefix('v1')->group(function () {
     Route::get('/attributes', [AttributeController::class, 'index']);
     Route::get('/attributes/{id}', [AttributeController::class, 'show']);
 
-    // Protected Admin Operations (Module 1 & 2)
+    // Public Product Management Engine Endpoints (Module 3)
+    Route::get('/products', [ProductController::class, 'index']);
+    Route::get('/products/featured', [ProductController::class, 'featured']);
+    Route::get('/products/trending', [ProductController::class, 'trending']);
+    Route::get('/products/{slug}', [ProductController::class, 'show']);
+
+    // Protected Admin Operations (Modules 1, 2, 3)
     Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(function () {
         // System Settings Admin
         Route::put('/settings', [SettingController::class, 'update']);
@@ -72,5 +79,11 @@ Route::prefix('v1')->group(function () {
 
         // Media Upload
         Route::post('/media/upload', [MediaController::class, 'upload']);
+
+        // Product Engine Admin Management
+        Route::post('/products', [ProductController::class, 'store']);
+        Route::put('/products/{id}', [ProductController::class, 'update']);
+        Route::delete('/products/{id}', [ProductController::class, 'destroy']);
+        Route::patch('/products/{id}/status', [ProductController::class, 'updateStatus']);
     });
 });
