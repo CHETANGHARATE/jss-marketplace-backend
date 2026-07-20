@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\Admin\AdminOrderController;
 use App\Http\Controllers\Api\V1\Admin\AdminPaymentController;
 use App\Http\Controllers\Api\V1\Admin\AdminReviewController;
 use App\Http\Controllers\Api\V1\Admin\AdminShippingController;
+use App\Http\Controllers\Api\V1\Admin\AdminVendorController;
 use App\Http\Controllers\Api\V1\AttributeController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BrandController;
@@ -22,6 +23,7 @@ use App\Http\Controllers\Api\V1\ReviewController;
 use App\Http\Controllers\Api\V1\SettingController;
 use App\Http\Controllers\Api\V1\ShippingController;
 use App\Http\Controllers\Api\V1\SupportTicketController;
+use App\Http\Controllers\Api\V1\VendorStoreController;
 use App\Http\Controllers\Api\V1\WarehouseController;
 use App\Http\Controllers\Api\V1\WishlistController;
 use Illuminate\Support\Facades\Route;
@@ -75,6 +77,10 @@ Route::prefix('v1')->group(function () {
     Route::get('/products/trending', [ProductController::class, 'trending']);
     Route::get('/products/{slug}', [ProductController::class, 'show']);
 
+    // Public Vendor Storefront Endpoints (Module 11)
+    Route::get('/stores', [VendorStoreController::class, 'index']);
+    Route::get('/stores/{slug}', [VendorStoreController::class, 'show']);
+
     // Public Product Reviews & Questions (Module 9)
     Route::get('/products/{id}/reviews', [ReviewController::class, 'index']);
     Route::get('/products/{id}/questions', [QuestionController::class, 'index']);
@@ -102,7 +108,7 @@ Route::prefix('v1')->group(function () {
     Route::post('/shipping/calculate', [ShippingController::class, 'calculate']);
     Route::get('/shipments/track/{trackingNumber}', [ShippingController::class, 'track']);
 
-    // Protected Customer Operations (Modules 5-10)
+    // Protected Customer & Vendor Operations (Modules 5-11)
     Route::middleware('auth:sanctum')->group(function () {
         // Customer Addresses
         Route::prefix('addresses')->group(function () {
@@ -153,9 +159,20 @@ Route::prefix('v1')->group(function () {
             Route::patch('/{id}/read', [NotificationController::class, 'markAsRead']);
             Route::post('/read-all', [NotificationController::class, 'markAllAsRead']);
         });
+
+        // Vendor Dashboard & Store Operations (Module 11)
+        Route::prefix('vendor')->group(function () {
+            Route::post('/store', [VendorStoreController::class, 'register']);
+            Route::get('/store', [VendorStoreController::class, 'currentStore']);
+            Route::get('/dashboard', [VendorStoreController::class, 'dashboard']);
+            Route::get('/products', [VendorStoreController::class, 'products']);
+            Route::get('/orders', [VendorStoreController::class, 'orders']);
+            Route::get('/wallet', [VendorStoreController::class, 'wallet']);
+            Route::post('/settlements/request', [VendorStoreController::class, 'requestSettlement']);
+        });
     });
 
-    // Protected Admin Operations (Modules 1-10)
+    // Protected Admin Operations (Modules 1-11)
     Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(function () {
         // System Settings Admin
         Route::put('/settings', [SettingController::class, 'update']);
@@ -242,5 +259,11 @@ Route::prefix('v1')->group(function () {
         // Admin Audit & Activity Logs (Module 10)
         Route::get('/audit-logs', [AdminAnalyticsController::class, 'auditLogs']);
         Route::get('/activity-logs', [AdminAnalyticsController::class, 'activityLogs']);
+
+        // Admin Multi-Vendor Management (Module 11)
+        Route::get('/vendor/stores', [AdminVendorController::class, 'stores']);
+        Route::patch('/vendor/stores/{id}/kyc', [AdminVendorController::class, 'verifyKYC']);
+        Route::get('/vendor/settlements', [AdminVendorController::class, 'settlements']);
+        Route::patch('/vendor/settlements/{id}/process', [AdminVendorController::class, 'processSettlement']);
     });
 });

@@ -35,10 +35,13 @@ Production-ready backend API service powering the JSS Solutions Multi Vendor Mar
 - Verified purchase reviews, moderation workflow, rating recalculation listeners, product Q&A, and threaded support tickets.
 
 ### Module 10: Notifications, Business Intelligence Analytics & Administration
-- **User Notifications Engine**: In-app notifications (`user_notifications`) for order updates, payment confirmations, and stock alerts.
-- **Business Intelligence Analytics (`AnalyticsService`)**: Admin dashboard overview stats, 30-day sales trend, sales BI (AOV, payment gateway breakdown), customer analytics, and inventory health metrics.
-- **Report Export Engine (`ReportExportService`)**: Export sales orders and inventory health reports as CSV downloads or JSON payloads.
-- **Audit & Activity Logging**: Separate `audit_logs` tracking critical administrative mutations and `activity_logs` tracking user actions.
+- User notifications engine (`user_notifications`), admin BI analytics (`AnalyticsService`), CSV report exports (`ReportExportService`), and separate `audit_logs` & `activity_logs`.
+
+### Module 11: Multi-Vendor Marketplace Management
+- **Vendor Registration & KYC Verification**: Vendors register storefront profiles (`vendor_stores`). Admins moderate KYC documents (`kyc_status`) to activate stores.
+- **Vendor Storefronts**: Public storefront URLs (`/api/v1/stores/{slug}`) displaying vendor info and seller products.
+- **Automatic Commission Engine (`VendorCommissionService`)**: Upon order payment capture (`PaymentSuccessEvent`), automatically calculates marketplace commission (e.g. 10%), credits net earnings to the vendor wallet, and logs transaction ledgers.
+- **Vendor Wallet & Payout Settlements**: Vendor wallets (`vendor_wallets`) tracking balances and withdrawal requests (`SET-YYYYMMDD-XXXXX`).
 
 ---
 
@@ -49,27 +52,27 @@ Production-ready backend API service powering the JSS Solutions Multi Vendor Mar
 - `POST /api/v1/auth/login` - Login via email/phone
 - `GET /api/v1/auth/me` - User profile (*Protected*)
 
-### Public Catalog & Products (Modules 2, 3, 9)
+### Public Catalog & Stores (Modules 2, 3, 11)
 - `GET /api/v1/categories` - Fetch category tree
 - `GET /api/v1/products` - Filtered product catalog
+- `GET /api/v1/stores` - List active vendor stores
+- `GET /api/v1/stores/{slug}` - Public vendor storefront & products
 
-### Protected Customer Operations (Modules 5-10 - *Sanctum*)
-- `GET /api/v1/cart` - Fetch active cart
-- `POST /api/v1/checkout/process` - Execute checkout
-- `POST /api/v1/payments/initiate` - Initiate gateway checkout popup
-- `POST /api/v1/payments/verify` - Verify payment signature
-- `GET /api/v1/notifications` - Customer in-app notifications
-- `PATCH /api/v1/notifications/{id}/read` - Mark notification read
+### Protected Vendor Operations (Module 11 - *Sanctum + Seller*)
+- `POST /api/v1/vendor/store` - Register vendor store profile
+- `GET /api/v1/vendor/store` - Current vendor store details
+- `GET /api/v1/vendor/dashboard` - Vendor dashboard metrics
+- `GET /api/v1/vendor/products` - Vendor's owned products
+- `GET /api/v1/vendor/orders` - Vendor's line item orders
+- `GET /api/v1/vendor/wallet` - Vendor wallet balance & transaction ledger
+- `POST /api/v1/vendor/settlements/request` - Request payout settlement
 
 ### Admin Management (*Protected: Sanctum + Admin*)
-- `GET /api/v1/admin/analytics/overview` - Admin dashboard overview & sales chart
-- `GET /api/v1/admin/analytics/sales` - Detailed sales BI analytics
-- `GET /api/v1/admin/analytics/customers` - Customer metrics & top buyers
-- `GET /api/v1/admin/analytics/inventory` - Inventory health & stock value
-- `GET /api/v1/admin/reports/sales/export` - Export sales report (CSV/JSON)
-- `GET /api/v1/admin/reports/inventory/export` - Export inventory report (CSV/JSON)
-- `GET /api/v1/admin/audit-logs` - System audit logs
-- `GET /api/v1/admin/activity-logs` - User activity logs
+- `GET /api/v1/admin/analytics/overview` - Admin dashboard BI overview
+- `GET /api/v1/admin/vendor/stores` - List vendor stores
+- `PATCH /api/v1/admin/vendor/stores/{id}/kyc` - Moderate vendor KYC & activate store
+- `GET /api/v1/admin/vendor/settlements` - List payout settlement requests
+- `PATCH /api/v1/admin/vendor/settlements/{id}/process` - Process payout settlement (`paid`/`rejected`)
 
 ---
 
