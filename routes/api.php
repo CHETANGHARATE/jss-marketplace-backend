@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AddressController;
+use App\Http\Controllers\Api\V1\Admin\AdminAnalyticsController;
 use App\Http\Controllers\Api\V1\Admin\AdminOrderController;
 use App\Http\Controllers\Api\V1\Admin\AdminPaymentController;
 use App\Http\Controllers\Api\V1\Admin\AdminReviewController;
@@ -12,6 +13,7 @@ use App\Http\Controllers\Api\V1\CartController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\InventoryController;
 use App\Http\Controllers\Api\V1\MediaController;
+use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\PaymentController;
 use App\Http\Controllers\Api\V1\ProductController;
@@ -100,7 +102,7 @@ Route::prefix('v1')->group(function () {
     Route::post('/shipping/calculate', [ShippingController::class, 'calculate']);
     Route::get('/shipments/track/{trackingNumber}', [ShippingController::class, 'track']);
 
-    // Protected Customer Operations (Modules 5-9)
+    // Protected Customer Operations (Modules 5-10)
     Route::middleware('auth:sanctum')->group(function () {
         // Customer Addresses
         Route::prefix('addresses')->group(function () {
@@ -144,9 +146,16 @@ Route::prefix('v1')->group(function () {
             Route::get('/{ticketNumber}', [SupportTicketController::class, 'show']);
             Route::post('/{ticketNumber}/reply', [SupportTicketController::class, 'reply']);
         });
+
+        // Customer Notifications Engine (Module 10)
+        Route::prefix('notifications')->group(function () {
+            Route::get('/', [NotificationController::class, 'index']);
+            Route::patch('/{id}/read', [NotificationController::class, 'markAsRead']);
+            Route::post('/read-all', [NotificationController::class, 'markAllAsRead']);
+        });
     });
 
-    // Protected Admin Operations (Modules 1-9)
+    // Protected Admin Operations (Modules 1-10)
     Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(function () {
         // System Settings Admin
         Route::put('/settings', [SettingController::class, 'update']);
@@ -217,5 +226,21 @@ Route::prefix('v1')->group(function () {
         Route::get('/support/tickets', [AdminReviewController::class, 'tickets']);
         Route::post('/support/tickets/{id}/reply', [AdminReviewController::class, 'ticketReply']);
         Route::patch('/support/tickets/{id}/status', [AdminReviewController::class, 'updateTicketStatus']);
+
+        // Admin BI Analytics & Administration (Module 10)
+        Route::prefix('analytics')->group(function () {
+            Route::get('/overview', [AdminAnalyticsController::class, 'overview']);
+            Route::get('/sales', [AdminAnalyticsController::class, 'sales']);
+            Route::get('/customers', [AdminAnalyticsController::class, 'customers']);
+            Route::get('/inventory', [AdminAnalyticsController::class, 'inventory']);
+        });
+
+        // Admin Report Exports (Module 10)
+        Route::get('/reports/sales/export', [AdminAnalyticsController::class, 'exportSales']);
+        Route::get('/reports/inventory/export', [AdminAnalyticsController::class, 'exportInventory']);
+
+        // Admin Audit & Activity Logs (Module 10)
+        Route::get('/audit-logs', [AdminAnalyticsController::class, 'auditLogs']);
+        Route::get('/activity-logs', [AdminAnalyticsController::class, 'activityLogs']);
     });
 });

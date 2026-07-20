@@ -32,11 +32,13 @@ Production-ready backend API service powering the JSS Solutions Multi Vendor Mar
 - Geographic shipping zones, `CourierDriverInterface` (Delhivery & Local courier drivers), AWB tracking, and automated order status listeners.
 
 ### Module 9: Customer Reviews, Ratings & Support System
-- **Verified Purchase Reviews**: Only customers with delivered/confirmed orders for a product can submit 1-5 star ratings & reviews.
-- **Review Moderation & Aggregate Statistics**: Moderation workflow (`pending`, `approved`, `rejected`). Dispatches `ReviewApprovedEvent` to recalculate `products.rating` average and `products.reviews_count`.
-- **Customer Product Q&A**: Public product question submission with admin/seller answers.
-- **Review Reporting**: Mechanism for customers to flag inappropriate or abusive reviews.
-- **Threaded Support Tickets**: Multi-category support ticket system (`TKT-YYYYMMDD-XXXXX`) supporting threaded conversation replies between customers and support admins.
+- Verified purchase reviews, moderation workflow, rating recalculation listeners, product Q&A, and threaded support tickets.
+
+### Module 10: Notifications, Business Intelligence Analytics & Administration
+- **User Notifications Engine**: In-app notifications (`user_notifications`) for order updates, payment confirmations, and stock alerts.
+- **Business Intelligence Analytics (`AnalyticsService`)**: Admin dashboard overview stats, 30-day sales trend, sales BI (AOV, payment gateway breakdown), customer analytics, and inventory health metrics.
+- **Report Export Engine (`ReportExportService`)**: Export sales orders and inventory health reports as CSV downloads or JSON payloads.
+- **Audit & Activity Logging**: Separate `audit_logs` tracking critical administrative mutations and `activity_logs` tracking user actions.
 
 ---
 
@@ -50,28 +52,24 @@ Production-ready backend API service powering the JSS Solutions Multi Vendor Mar
 ### Public Catalog & Products (Modules 2, 3, 9)
 - `GET /api/v1/categories` - Fetch category tree
 - `GET /api/v1/products` - Filtered product catalog
-- `GET /api/v1/products/{id}/reviews` - Approved reviews & rating summary
-- `GET /api/v1/products/{id}/questions` - Answered product Q&As
 
-### Protected Customer Operations (Modules 5-9 - *Sanctum*)
+### Protected Customer Operations (Modules 5-10 - *Sanctum*)
 - `GET /api/v1/cart` - Fetch active cart
 - `POST /api/v1/checkout/process` - Execute checkout
 - `POST /api/v1/payments/initiate` - Initiate gateway checkout popup
 - `POST /api/v1/payments/verify` - Verify payment signature
-- `POST /api/v1/reviews` - Submit review for verified purchase
-- `POST /api/v1/questions` - Ask product question
-- `POST /api/v1/support/tickets` - Create support ticket
-- `GET /api/v1/support/tickets/{ticketNumber}` - View ticket conversation
-- `POST /api/v1/support/tickets/{ticketNumber}/reply` - Reply to support ticket
+- `GET /api/v1/notifications` - Customer in-app notifications
+- `PATCH /api/v1/notifications/{id}/read` - Mark notification read
 
 ### Admin Management (*Protected: Sanctum + Admin*)
-- `GET /api/v1/admin/orders` - List all marketplace orders
-- `GET /api/v1/admin/payments` - List all payments
-- `GET /api/v1/admin/reviews` - Review moderation queue
-- `PATCH /api/v1/admin/reviews/{id}/moderate` - Moderate review (`approved`/`rejected`)
-- `POST /api/v1/admin/questions/{id}/answer` - Answer product question
-- `GET /api/v1/admin/support/tickets` - Support tickets queue
-- `POST /api/v1/admin/support/tickets/{id}/reply` - Admin reply to ticket
+- `GET /api/v1/admin/analytics/overview` - Admin dashboard overview & sales chart
+- `GET /api/v1/admin/analytics/sales` - Detailed sales BI analytics
+- `GET /api/v1/admin/analytics/customers` - Customer metrics & top buyers
+- `GET /api/v1/admin/analytics/inventory` - Inventory health & stock value
+- `GET /api/v1/admin/reports/sales/export` - Export sales report (CSV/JSON)
+- `GET /api/v1/admin/reports/inventory/export` - Export inventory report (CSV/JSON)
+- `GET /api/v1/admin/audit-logs` - System audit logs
+- `GET /api/v1/admin/activity-logs` - User activity logs
 
 ---
 
