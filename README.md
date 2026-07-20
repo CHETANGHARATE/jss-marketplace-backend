@@ -41,9 +41,13 @@ Production-ready backend API service powering the JSS Solutions Multi Vendor Mar
 - Vendor storefronts (`vendor_stores`), KYC verification, automated commission engine (`VendorCommissionService`), vendor wallets (`vendor_wallets`), and payout settlements (`SET-YYYYMMDD-XXXXX`).
 
 ### Module 12: Promotions, Coupons & Marketing Automation
-- **Coupon & Rule-Based Discount Engine (`PromotionEngineService`)**: Percentage or fixed-amount discounts with minimum order thresholds, max discount caps, global usage limits, and per-user usage caps (`coupons`, `coupon_usages`).
-- **Flash Sales Campaigns (`FlashSaleService`)**: Time-bound flash sale campaigns (`flash_sales`, `flash_sale_products`) calculating live discounted flash prices.
-- **Loyalty Program & Referral System**: Automatic loyalty point accrual (1 point per 10 currency spent) and referrer rewards on referee purchases (`loyalty_points`, `referrals`).
+- Rule-based discount engine (`PromotionEngineService`), flash sale campaigns (`FlashSaleService`), customer loyalty points, and referral rewards.
+
+### Module 13: Search, Recommendations & Personalization
+- **Pluggable Search Driver Architecture (`SearchDriverInterface`)**: Native database driver (`DatabaseSearchDriver`) with fulltext text searching, dynamic facets aggregation (category counts, brand counts, min/max price bounds), and Meilisearch driver foundation (`MeilisearchDriver`).
+- **Search Autocomplete & Query Analytics**: Quick autocomplete suggestions (`/api/v1/search/autocomplete`) and query logging (`search_logs`).
+- **Recommendation Engine (`RecommendationService`)**: Category & brand related products, trending products, and personalized customer recommendations based on wishlist categories and purchase history.
+- **Search Synonyms & Admin BI Analytics**: Search query popularity, zero-result query tracking, and search synonyms management (`search_synonyms`).
 
 ---
 
@@ -54,25 +58,24 @@ Production-ready backend API service powering the JSS Solutions Multi Vendor Mar
 - `POST /api/v1/auth/login` - Login via email/phone
 - `GET /api/v1/auth/me` - User profile (*Protected*)
 
-### Public Catalog, Stores & Promotions (Modules 2, 3, 11, 12)
+### Public Catalog, Discovery & Search (Modules 2, 3, 11, 13)
 - `GET /api/v1/categories` - Fetch category tree
 - `GET /api/v1/products` - Filtered product catalog
-- `GET /api/v1/stores` - List active vendor stores
-- `POST /api/v1/promotions/coupons/apply` - Validate & calculate coupon discount
-- `GET /api/v1/promotions/flash-sales` - View active flash sale campaigns
+- `GET /api/v1/search` - Advanced search with dynamic facets & sorting
+- `GET /api/v1/search/autocomplete` - Fast query autocomplete suggestions
+- `GET /api/v1/products/{id}/related` - Related product recommendations
+- `GET /api/v1/recommendations/trending` - Trending product recommendations
 
-### Protected Customer Operations (Modules 5-12 - *Sanctum*)
+### Protected Customer Operations (Modules 5-13 - *Sanctum*)
 - `GET /api/v1/cart` - Fetch active cart
 - `POST /api/v1/checkout/process` - Execute checkout
-- `GET /api/v1/loyalty/points` - Customer loyalty points balance
+- `GET /api/v1/recommendations/personalized` - Customer personalized recommendations
 
 ### Admin Management (*Protected: Sanctum + Admin*)
 - `GET /api/v1/admin/analytics/overview` - Admin dashboard BI overview
-- `GET /api/v1/admin/coupons` - List coupons
-- `POST /api/v1/admin/coupons` - Create new coupon code
-- `DELETE /api/v1/admin/coupons/{id}` - Delete coupon
-- `GET /api/v1/admin/flash-sales` - List flash sales
-- `POST /api/v1/admin/flash-sales` - Create flash sale campaign
+- `GET /api/v1/admin/search/analytics` - Search queries analytics & zero-result terms
+- `GET /api/v1/admin/search/synonyms` - Search synonyms list
+- `POST /api/v1/admin/search/synonyms` - Add search synonym mapping
 
 ---
 

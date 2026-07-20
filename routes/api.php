@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\Admin\AdminOrderController;
 use App\Http\Controllers\Api\V1\Admin\AdminPaymentController;
 use App\Http\Controllers\Api\V1\Admin\AdminPromotionController;
 use App\Http\Controllers\Api\V1\Admin\AdminReviewController;
+use App\Http\Controllers\Api\V1\Admin\AdminSearchController;
 use App\Http\Controllers\Api\V1\Admin\AdminShippingController;
 use App\Http\Controllers\Api\V1\Admin\AdminVendorController;
 use App\Http\Controllers\Api\V1\AttributeController;
@@ -22,6 +23,7 @@ use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\PromotionController;
 use App\Http\Controllers\Api\V1\QuestionController;
 use App\Http\Controllers\Api\V1\ReviewController;
+use App\Http\Controllers\Api\V1\SearchController;
 use App\Http\Controllers\Api\V1\SettingController;
 use App\Http\Controllers\Api\V1\ShippingController;
 use App\Http\Controllers\Api\V1\SupportTicketController;
@@ -79,6 +81,12 @@ Route::prefix('v1')->group(function () {
     Route::get('/products/trending', [ProductController::class, 'trending']);
     Route::get('/products/{slug}', [ProductController::class, 'show']);
 
+    // Advanced Product Search & Discovery (Module 13)
+    Route::get('/search', [SearchController::class, 'search']);
+    Route::get('/search/autocomplete', [SearchController::class, 'autocomplete']);
+    Route::get('/products/{id}/related', [SearchController::class, 'related']);
+    Route::get('/recommendations/trending', [SearchController::class, 'trending']);
+
     // Public Vendor Storefront Endpoints (Module 11)
     Route::get('/stores', [VendorStoreController::class, 'index']);
     Route::get('/stores/{slug}', [VendorStoreController::class, 'show']);
@@ -114,7 +122,7 @@ Route::prefix('v1')->group(function () {
     Route::post('/shipping/calculate', [ShippingController::class, 'calculate']);
     Route::get('/shipments/track/{trackingNumber}', [ShippingController::class, 'track']);
 
-    // Protected Customer & Vendor Operations (Modules 5-12)
+    // Protected Customer Operations (Modules 5-13)
     Route::middleware('auth:sanctum')->group(function () {
         // Customer Addresses
         Route::prefix('addresses')->group(function () {
@@ -166,8 +174,9 @@ Route::prefix('v1')->group(function () {
             Route::post('/read-all', [NotificationController::class, 'markAllAsRead']);
         });
 
-        // Customer Loyalty Points (Module 12)
+        // Customer Loyalty Points & Personalized Recommendations (Modules 12, 13)
         Route::get('/loyalty/points', [PromotionController::class, 'loyaltyPoints']);
+        Route::get('/recommendations/personalized', [SearchController::class, 'personalized']);
 
         // Vendor Dashboard & Store Operations (Module 11)
         Route::prefix('vendor')->group(function () {
@@ -181,7 +190,7 @@ Route::prefix('v1')->group(function () {
         });
     });
 
-    // Protected Admin Operations (Modules 1-12)
+    // Protected Admin Operations (Modules 1-13)
     Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(function () {
         // System Settings Admin
         Route::put('/settings', [SettingController::class, 'update']);
@@ -281,5 +290,10 @@ Route::prefix('v1')->group(function () {
         Route::delete('/coupons/{id}', [AdminPromotionController::class, 'destroyCoupon']);
         Route::get('/flash-sales', [AdminPromotionController::class, 'indexFlashSales']);
         Route::post('/flash-sales', [AdminPromotionController::class, 'storeFlashSale']);
+
+        // Admin Search Analytics & Synonyms (Module 13)
+        Route::get('/search/analytics', [AdminSearchController::class, 'analytics']);
+        Route::get('/search/synonyms', [AdminSearchController::class, 'synonyms']);
+        Route::post('/search/synonyms', [AdminSearchController::class, 'storeSynonym']);
     });
 });
