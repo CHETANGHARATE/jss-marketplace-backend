@@ -4,9 +4,11 @@ use App\Http\Controllers\Api\V1\AttributeController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BrandController;
 use App\Http\Controllers\Api\V1\CategoryController;
+use App\Http\Controllers\Api\V1\InventoryController;
 use App\Http\Controllers\Api\V1\MediaController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\SettingController;
+use App\Http\Controllers\Api\V1\WarehouseController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -58,7 +60,11 @@ Route::prefix('v1')->group(function () {
     Route::get('/products/trending', [ProductController::class, 'trending']);
     Route::get('/products/{slug}', [ProductController::class, 'show']);
 
-    // Protected Admin Operations (Modules 1, 2, 3)
+    // Public Warehouse Endpoints (Module 4)
+    Route::get('/warehouses', [WarehouseController::class, 'index']);
+    Route::get('/warehouses/{id}', [WarehouseController::class, 'show']);
+
+    // Protected Admin Operations (Modules 1, 2, 3, 4)
     Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(function () {
         // System Settings Admin
         Route::put('/settings', [SettingController::class, 'update']);
@@ -85,5 +91,17 @@ Route::prefix('v1')->group(function () {
         Route::put('/products/{id}', [ProductController::class, 'update']);
         Route::delete('/products/{id}', [ProductController::class, 'destroy']);
         Route::patch('/products/{id}/status', [ProductController::class, 'updateStatus']);
+
+        // Warehouse Management (Module 4)
+        Route::post('/warehouses', [WarehouseController::class, 'store']);
+        Route::delete('/warehouses/{id}', [WarehouseController::class, 'destroy']);
+
+        // Inventory Management Engine (Module 4)
+        Route::get('/inventories', [InventoryController::class, 'index']);
+        Route::post('/inventories/add-stock', [InventoryController::class, 'addStock']);
+        Route::post('/inventories/adjust-stock', [InventoryController::class, 'adjustStock']);
+        Route::post('/inventories/transfer', [InventoryController::class, 'transfer']);
+        Route::get('/inventories/low-stock', [InventoryController::class, 'lowStockReport']);
+        Route::get('/stock-movements', [InventoryController::class, 'movements']);
     });
 });
