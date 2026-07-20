@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\AddressController;
 use App\Http\Controllers\Api\V1\Admin\AdminOrderController;
+use App\Http\Controllers\Api\V1\Admin\AdminPaymentController;
 use App\Http\Controllers\Api\V1\AttributeController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BrandController;
@@ -10,6 +11,7 @@ use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\InventoryController;
 use App\Http\Controllers\Api\V1\MediaController;
 use App\Http\Controllers\Api\V1\OrderController;
+use App\Http\Controllers\Api\V1\PaymentController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\SettingController;
 use App\Http\Controllers\Api\V1\WarehouseController;
@@ -81,24 +83,34 @@ Route::prefix('v1')->group(function () {
         Route::middleware('auth:sanctum')->post('/merge', [CartController::class, 'merge']);
     });
 
-    // Protected Customer Addresses (Module 6)
-    Route::middleware('auth:sanctum')->prefix('addresses')->group(function () {
-        Route::get('/', [AddressController::class, 'index']);
-        Route::post('/', [AddressController::class, 'store']);
-        Route::delete('/{id}', [AddressController::class, 'destroy']);
-    });
+    // Public Gateway Webhook Listener (Module 7)
+    Route::post('/payments/webhook/{gateway}', [PaymentController::class, 'webhook']);
 
-    // Protected Customer Checkout & Orders Engine (Module 6)
+    // Protected Customer Operations (Modules 5, 6, 7)
     Route::middleware('auth:sanctum')->group(function () {
-        Route::post('/checkout/process', [OrderController::class, 'checkout']);
+        // Customer Addresses
+        Route::prefix('addresses')->group(function () {
+            Route::get('/', [AddressController::class, 'index']);
+            Route::post('/', [AddressController::class, 'store']);
+            Route::delete('/{id}', [AddressController::class, 'destroy']);
+        });
 
+        // Customer Checkout & Orders Engine
+        Route::post('/checkout/process', [OrderController::class, 'checkout']);
         Route::prefix('orders')->group(function () {
             Route::get('/', [OrderController::class, 'index']);
             Route::get('/{orderNumber}', [OrderController::class, 'show']);
             Route::post('/{orderNumber}/cancel', [OrderController::class, 'cancel']);
         });
 
-        // Protected Customer Wishlist Endpoints (Module 5)
+        // Customer Payments Engine (Module 7)
+        Route::prefix('payments')->group(function () {
+            Route::post('/initiate', [PaymentController::class, 'initiate']);
+            Route::post('/verify', [PaymentController::class, 'verify']);
+            Route::get('/{paymentNumber}', [PaymentController::class, 'show']);
+        });
+
+        // Customer Wishlist Endpoints
         Route::prefix('wishlist')->group(function () {
             Route::get('/', [WishlistController::class, 'index']);
             Route::post('/toggle', [WishlistController::class, 'toggle']);
@@ -106,7 +118,7 @@ Route::prefix('v1')->group(function () {
         });
     });
 
-    // Protected Admin Operations (Modules 1, 2, 3, 4, 5, 6)
+    // Protected Admin Operations (Modules 1-7)
     Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(function () {
         // System Settings Admin
         Route::put('/settings', [SettingController::class, 'update']);
@@ -153,5 +165,10 @@ Route::prefix('v1')->group(function () {
         Route::get('/orders', [AdminOrderController::class, 'index']);
         Route::get('/orders/{id}', [AdminOrderController::class, 'show']);
         Route::patch('/orders/{id}/status', [AdminOrderController::class, 'updateStatus']);
+
+        // Admin Payment & Refund Management (Module 7)
+        Route::get('/payments', [AdminPaymentController::class, 'index']);
+        Route::get('/payments/logs', [AdminPaymentController::class, 'logs']);
+        Route::post('/payments/refund', [AdminPaymentController::class, 'refund']);
     });
 });

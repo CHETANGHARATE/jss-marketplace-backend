@@ -14,21 +14,24 @@ Production-ready backend API service powering the JSS Solutions Multi Vendor Mar
 - Unlimited nesting categories (multilingual `en`, `hi`, `mr`), Brands, Attributes & Values, and Polymorphic Media Library.
 
 ### Module 3: Product Management Engine
-- **Product Core & Pricing Engine**: Original price, offer price, cost price, automatic discount calculation, stock status (`in_stock`, `out_of_stock`, `pre_order`), rating & reviews count.
-- **Approval Workflow**: Status transitions (`draft`, `pending_approval`, `approved`, `rejected`, `archived`).
+- **Product Core & Pricing Engine**: Original price, offer price, cost price, automatic discount calculation, stock status, rating & reviews count.
 
 ### Module 4: Inventory & Warehouse Management
-- **Multi-Warehouse Fulfillment**: Fulfillment centers (`warehouses` table) with contact details, primary flags, addresses, and soft deletes.
-- **Stock Movement Audit Ledger**: Immutable audit trail ledger entries for all stock operations in `stock_movements` table.
+- Multi-warehouse fulfillment centers with stock movement audit ledgers (`stock_movements`).
 
 ### Module 5: Shopping Cart & Wishlist System
 - Dual session active carts (Auth user or Guest session ID). Stock-validated item additions and guest cart merging.
 
 ### Module 6: Orders & Checkout Engine
-- **Customer Address Management**: Saved shipping/billing addresses with default preferences.
-- **Atomic Checkout Engine**: `CheckoutService` validates cart items, real-time inventory stock, captures address snapshots, generates unique `ORD-YYYYMMDD-XXXXX` order numbers, creates order line items, deducts warehouse stock with movement logs, and converts active carts inside a single database transaction.
-- **Order Cancellation Workflow**: `OrderService` validates cancellation eligibility (`pending`/`confirmed`), restores deducted stock back to warehouse inventory, updates order status to `cancelled`, and records cancellation reasons.
-- **Admin Marketplace Order Management**: Admin overview of all marketplace orders across users with filtering by status and search.
+- Customer saved addresses, atomic checkout engine, order number generation, and cancellation stock restoration.
+
+### Module 7: Payment Gateway Driver Architecture & Transactions
+- **Pluggable Gateway Contract**: `PaymentGatewayInterface` decouples payment logic from specific providers.
+- **Razorpay Primary Integration**: Primary Indian gateway (`RazorpayGateway`) supporting order generation, HMAC-SHA256 signature verification, and webhook processing.
+- **Stripe Foundation**: Pluggable international gateway driver (`StripeGateway`).
+- **Idempotent Webhook Listener**: Public webhook handler `/api/v1/payments/webhook/{gateway}` verifying signatures and de-duplicating events via audit logs (`payment_logs`).
+- **Events & Listeners**: Dispatches `PaymentSuccessEvent` upon payment capture, automatically setting order `payment_status = paid` and `status = confirmed`.
+- **Refund Processing**: `Refund` foundation tracking admin-initiated payment refunds.
 
 ---
 
@@ -42,26 +45,24 @@ Production-ready backend API service powering the JSS Solutions Multi Vendor Mar
 ### Public Catalog & Products (Modules 2 & 3)
 - `GET /api/v1/categories` - Fetch category tree
 - `GET /api/v1/products` - Filtered & paginated product catalog
-- `GET /api/v1/products/{slug}` - Product detail page
 
-### Shopping Cart & Wishlist (Module 5)
-- `GET /api/v1/cart` - Fetch current cart (uses `auth:sanctum` or `X-Session-ID` header)
-- `POST /api/v1/cart/items` - Add item to cart with stock validation
-- `POST /api/v1/cart/merge` - Merge guest cart into user account (*Protected*)
+### Public Gateway Webhook Listener (Module 7)
+- `POST /api/v1/payments/webhook/{gateway}` - Public HMAC signature-verified webhook handler
 
-### Customer Addresses & Orders Engine (Module 6 - *Protected: Sanctum*)
-- `GET /api/v1/addresses` - List saved customer addresses
-- `POST /api/v1/addresses` - Save new shipping/billing address
-- `DELETE /api/v1/addresses/{id}` - Delete saved address
+### Protected Customer Operations (Modules 5, 6, 7 - *Sanctum*)
+- `GET /api/v1/cart` - Fetch current active cart
 - `POST /api/v1/checkout/process` - Execute checkout & place order
+- `POST /api/v1/payments/initiate` - Initiate gateway order for frontend popup checkout
+- `POST /api/v1/payments/verify` - Verify payment signature & capture payment
+- `GET /api/v1/payments/{paymentNumber}` - Payment details
 - `GET /api/v1/orders` - Customer order history
-- `GET /api/v1/orders/{orderNumber}` - Single order details
 - `POST /api/v1/orders/{orderNumber}/cancel` - Cancel order & restore inventory stock
 
 ### Admin Management (*Protected: Sanctum + Admin*)
-- `GET /api/v1/admin/orders` - List all marketplace orders (Status/Payment/Search filter)
-- `GET /api/v1/admin/orders/{id}` - Admin order details
-- `PATCH /api/v1/admin/orders/{id}/status` - Update order status (`confirmed`, `processing`, `shipped`, `delivered`, `cancelled`)
+- `GET /api/v1/admin/orders` - List all marketplace orders
+- `GET /api/v1/admin/payments` - List all payments
+- `GET /api/v1/admin/payments/logs` - Gateway audit logs
+- `POST /api/v1/admin/payments/refund` - Process order refund
 
 ---
 
