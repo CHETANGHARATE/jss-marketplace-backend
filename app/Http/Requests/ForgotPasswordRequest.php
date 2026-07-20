@@ -4,14 +4,14 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class UpdateSettingRequest extends FormRequest
+class ForgotPasswordRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
      */
     public function authorize(): bool
     {
-        return auth()->check() && auth()->user()->isAdmin();
+        return true;
     }
 
     /**
@@ -22,10 +22,7 @@ class UpdateSettingRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'key' => ['required', 'string', 'max:100'],
-            'value' => ['required'],
-            'group' => ['sometimes', 'string', 'in:general,payment,smtp,tax,shipping,social,maintenance'],
-            'is_public' => ['sometimes', 'boolean'],
+            'email' => ['required', 'string', 'email', 'exists:users,email'],
         ];
     }
 }

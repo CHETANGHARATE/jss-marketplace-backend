@@ -3,15 +3,16 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rules\Password;
 
-class UpdateSettingRequest extends FormRequest
+class ResetPasswordRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
      */
     public function authorize(): bool
     {
-        return auth()->check() && auth()->user()->isAdmin();
+        return true;
     }
 
     /**
@@ -22,10 +23,9 @@ class UpdateSettingRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'key' => ['required', 'string', 'max:100'],
-            'value' => ['required'],
-            'group' => ['sometimes', 'string', 'in:general,payment,smtp,tax,shipping,social,maintenance'],
-            'is_public' => ['sometimes', 'boolean'],
+            'token' => ['required', 'string'],
+            'email' => ['required', 'string', 'email', 'exists:users,email'],
+            'password' => ['required', 'string', 'confirmed', Password::min(8)->letters()->numbers()],
         ];
     }
 }

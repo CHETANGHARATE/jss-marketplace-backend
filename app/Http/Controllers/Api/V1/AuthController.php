@@ -5,30 +5,36 @@ namespace App\Http\Controllers\Api\V1;
 use App\Enums\UserRole;
 use App\Enums\UserStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\ForgotPasswordRequest;
 use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
+use App\Http\Requests\ResetPasswordRequest;
 use App\Http\Requests\UpdateProfileRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
+use Illuminate\Auth\Events\PasswordReset;
+use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
     /**
-     * Register a new user account (Customer or Vendor).
+     * Register a new user account (Customer or Seller).
+     * Prevents role escalation to Administrator.
      */
     public function register(RegisterRequest $request): JsonResponse
     {
-        $validated = $request French = $request->validated();
+        $validated = $request->validated();
         
-        $role = isset($validated['role']) 
-            ? UserRole::tryFrom($validated['role']) ?? UserRole::CUSTOMER 
-            : UserRole::CUSTOMER;
+        $roleInput = $validated['role'] ?? UserRole::CUSTOMER->value;
+        $role = UserRole::tryFrom($roleInput) ?? UserRole::CUSTOMER;
 
-        // Prevent public registration as System Administrator
+        // Strictly prevent public registration as Administrator
         if ($role === UserRole::ADMIN) {
             $role = UserRole::CUSTOMER;
         }
@@ -42,7 +48,10 @@ class AuthController extends Controller
             'status' => UserStatus::ACTIVE,
         ]);
 
+        // Assign Spatie Role as single source of truth
         $user->assignRole($role->value);
+
+        event(new Registered($user));
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
@@ -63,10 +72,10 @@ class AuthController extends Controller
     public function login(LoginRequest $request): JsonResponse
     {
         $credentials = $request->validated();
-        $loginField = $credentials['login'];
+        $loginField = strtolower($credentials['login']);
 
         // Support login by either email or phone
-        $user = User::where('email', strtolower($loginField))
+        $user = User::where('email', $loginField)
             ->orWhere('phone', $loginField)
             ->first();
 
@@ -85,7 +94,7 @@ class AuthController extends Controller
             ], 403);
         }
 
-        // Revoke old tokens optionally or issue new token
+        // Issue new token
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
@@ -130,6 +139,78 @@ class AuthController extends Controller
             'success' => true,
             'message' => 'Profile updated successfully.',
             'data' => new UserResource($user->fresh()),
+        ], 200);
+    }
+
+    /**
+     * Send password reset token/link.
+     */
+    public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
+    {
+        $status = Password::sendResetLink($request->only('email'));
+
+        if ($status === Password::RESET_LINK_SENT) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Password reset link sent to your email address.',
+            ], 200);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Unable to send password reset link.',
+            'errors' => ['email' => [__($status)]],
+        ], 400);
+    }
+
+    /**
+     * Reset password using reset token.
+     */
+    public function resetPassword(ResetPasswordRequest $request): JsonResponse
+    {
+        $status = Password::reset(
+            $request->only('email', 'password', 'password_confirmation', 'token'),
+            function (User $user, string $password) {
+                $user->forceFill([
+                    'password' => Hash::make($password),
+                    'remember_token' => Str::random(60),
+                ])->save();
+
+                event(new PasswordReset($user));
+            }
+        );
+
+        if ($status === Password::PASSWORD_RESET) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Your password has been reset successfully.',
+            ], 200);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Password reset failed.',
+            'errors' => ['email' => [__($status)]],
+        ], 400);
+    }
+
+    /**
+     * Resend email verification notification.
+     */
+    public function sendVerificationNotification(Request $request): JsonResponse
+    {
+        if ($request->user()->hasVerifiedEmail()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Email is already verified.',
+            ], 200);
+        }
+
+        $request->user()->sendEmailVerificationNotification();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Verification link sent to your email.',
         ], 200);
     }
 

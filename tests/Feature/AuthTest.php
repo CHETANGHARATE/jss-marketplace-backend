@@ -12,6 +12,12 @@ class AuthTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->seed(\Database\Seeders\RolePermissionSeeder::class);
+    }
+
     public function test_user_can_register_as_customer(): void
     {
         $payload = [
@@ -36,6 +42,26 @@ class AuthTest extends TestCase
 
         $this->assertDatabaseHas('users', [
             'email' => 'jane@example.com',
+            'role' => UserRole::CUSTOMER->value,
+        ]);
+    }
+
+    public function test_public_registration_blocks_admin_role_escalation(): void
+    {
+        $payload = [
+            'name' => 'Hacker Admin',
+            'email' => 'hacker@example.com',
+            'password' => 'Password123!',
+            'role' => 'admin', // Attempting role escalation
+        ];
+
+        $response = $this->postJson('/api/v1/auth/register', $payload);
+
+        $response->assertStatus(201);
+        
+        // Assert user was forced to Customer role instead of Admin
+        $this->assertDatabaseHas('users', [
+            'email' => 'hacker@example.com',
             'role' => UserRole::CUSTOMER->value,
         ]);
     }

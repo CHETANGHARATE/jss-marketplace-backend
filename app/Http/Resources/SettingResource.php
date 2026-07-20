@@ -18,6 +18,7 @@ class SettingResource extends JsonResource
             'key' => $this->key,
             'value' => $this->value,
             'group' => $this->group,
+            'is_public' => $this->is_public,
         ];
     }
 }

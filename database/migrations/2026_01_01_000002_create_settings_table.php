@@ -16,9 +16,10 @@ return new class extends Migration
             $table->string('key')->unique();
             $table->json('value');
             $table->enum('group', ['general', 'payment', 'smtp', 'tax', 'shipping', 'social', 'maintenance'])->default('general');
+            $table->boolean('is_public')->default(true);
             $table->timestamps();
 
-            $table->index('group');
+            $table->index(['group', 'is_public']);
         });
     }
 

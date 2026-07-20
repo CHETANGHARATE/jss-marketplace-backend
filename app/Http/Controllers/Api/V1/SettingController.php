@@ -8,22 +8,40 @@ use App\Http\Resources\SettingResource;
 use App\Models\Setting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class SettingController extends Controller
 {
     /**
-     * Get all public application settings.
+     * Get public application settings (or all settings if requested by authenticated Admin).
      */
     public function index(Request $request): JsonResponse
     {
         $group = $request->query('group');
+        $showAll = $request->query('all') && $request->user()?->isAdmin();
 
-        $query = Setting::query();
-        if ($group) {
-            $query->where('group', $group);
+        // Admin can request all settings (including private credentials)
+        if ($showAll) {
+            $query = Setting::query();
+            if ($group) {
+                $query->where('group', $group);
+            }
+            return response()->json([
+                'success' => true,
+                'data' => SettingResource::collection($query->get()),
+            ], 200);
         }
 
-        $settings = $query->get();
+        // Public users receive ONLY public settings with caching
+        $cacheKey = 'public_settings_' . ($group ?? 'all');
+
+        $settings = Cache::remember($cacheKey, 3600, function () use ($group) {
+            $query = Setting::where('is_public', true);
+            if ($group) {
+                $query->where('group', $group);
+            }
+            return $query->get();
+        });
 
         return response()->json([
             'success' => true,
@@ -41,7 +59,8 @@ class SettingController extends Controller
         $setting = Setting::set(
             $validated['key'],
             $validated['value'],
-            $validated['group'] ?? 'general'
+            $validated['group'] ?? 'general',
+            $validated['is_public'] ?? true
         );
 
         return response()->json([
