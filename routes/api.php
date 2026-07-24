@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\Admin\AdminPromotionController;
 use App\Http\Controllers\Api\V1\Admin\AdminReviewController;
 use App\Http\Controllers\Api\V1\Admin\AdminSearchController;
 use App\Http\Controllers\Api\V1\Admin\AdminShippingController;
+use App\Http\Controllers\Api\V1\Admin\AdminCustomerController;
 use App\Http\Controllers\Api\V1\Admin\AdminVendorController;
 use App\Http\Controllers\Api\V1\AttributeController;
 use App\Http\Controllers\Api\V1\AuthController;
@@ -282,9 +283,15 @@ Route::prefix('v1')->group(function () {
         Route::get('/audit-logs', [AdminAnalyticsController::class, 'auditLogs']);
         Route::get('/activity-logs', [AdminAnalyticsController::class, 'activityLogs']);
 
+        // Admin Customer Management
+        Route::get('/customers', [AdminCustomerController::class, 'index']);
+        Route::patch('/customers/{id}/toggle-status', [AdminCustomerController::class, 'toggleStatus']);
+
         // Admin Multi-Vendor Management (Module 11)
         Route::get('/vendor/stores', [AdminVendorController::class, 'stores']);
         Route::patch('/vendor/stores/{id}/kyc', [AdminVendorController::class, 'verifyKYC']);
+        Route::post('/vendor/stores/{id}/approve', [AdminVendorController::class, 'approveStore']);
+        Route::post('/vendor/stores/{id}/suspend', [AdminVendorController::class, 'suspendStore']);
         Route::get('/vendor/settlements', [AdminVendorController::class, 'settlements']);
         Route::patch('/vendor/settlements/{id}/process', [AdminVendorController::class, 'processSettlement']);
 

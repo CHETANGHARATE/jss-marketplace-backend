@@ -112,4 +112,34 @@ class AdminVendorController extends Controller
             ], 400);
         }
     }
+
+    /**
+     * Approve a vendor store (shortcut for verifyKYC with 'verified' status).
+     */
+    public function approveStore(int $id): JsonResponse
+    {
+        $store = VendorStore::findOrFail($id);
+        $updatedStore = $this->storeService->verifyKYC($store, 'verified');
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Vendor store approved and activated.',
+            'data'    => new VendorStoreResource($updatedStore),
+        ], 200);
+    }
+
+    /**
+     * Suspend a vendor store.
+     */
+    public function suspendStore(int $id): JsonResponse
+    {
+        $store = VendorStore::findOrFail($id);
+        $store->update(['status' => 'suspended']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Vendor store has been suspended.',
+            'data'    => new VendorStoreResource($store->fresh()),
+        ], 200);
+    }
 }
