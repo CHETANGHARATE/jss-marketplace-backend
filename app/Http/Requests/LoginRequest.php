@@ -22,7 +22,9 @@ class LoginRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'login' => ['required', 'string'], // email or phone
+            'login' => ['required_without_all:email,phone', 'nullable', 'string'],
+            'email' => ['nullable', 'string'],
+            'phone' => ['nullable', 'string'],
             'password' => ['required', 'string'],
         ];
     }

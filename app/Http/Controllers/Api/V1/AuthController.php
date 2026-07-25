@@ -72,7 +72,7 @@ class AuthController extends Controller
     public function login(LoginRequest $request): JsonResponse
     {
         $credentials = $request->validated();
-        $loginField = strtolower($credentials['login']);
+        $loginField = strtolower($credentials['login'] ?? $credentials['email'] ?? $credentials['phone'] ?? '');
 
         // Support login by either email or phone
         $user = User::where('email', $loginField)

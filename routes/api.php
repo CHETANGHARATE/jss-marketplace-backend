@@ -52,7 +52,7 @@ Route::prefix('v1')->group(function () {
     Route::prefix('auth')->group(function () {
         Route::middleware('throttle:6,1')->group(function () {
             Route::post('/register', [AuthController::class, 'register']);
-            Route::post('/login', [AuthController::class, 'login']);
+            Route::post('/login', [AuthController::class, 'login'])->name('login');
             Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
             Route::post('/reset-password', [AuthController::class, 'resetPassword']);
         });
@@ -66,6 +66,10 @@ Route::prefix('v1')->group(function () {
                 ->middleware('throttle:6,1');
         });
     });
+
+    // Authenticated User Profile Alias Endpoint (/api/v1/me)
+    Route::middleware('auth:sanctum')->get('/me', [AuthController::class, 'me']);
+
 
     // Public System Settings
     Route::get('/settings', [SettingController::class, 'index']);
