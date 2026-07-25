@@ -97,3 +97,20 @@ All 14 modules include dedicated, isolated feature test suites (`RefreshDatabase
 
 > **VERDICT: PASSED FOR PRODUCTION RELEASE (v3.0.0)**  
 > The JSS Marketplace Backend API is certified **PRODUCTION-READY**. All 14 modules are fully functional, thoroughly tested, secure, optimized, and containerized for deployment.
+
+---
+
+## 8. Production Backend Synchronization & Admin Endpoint Registry (July 25, 2026)
+
+The GitHub repository `CHETANGHARATE/jss-marketplace-backend` has been fully synchronized with the live production hosting environment. All production controllers, models, services, and migrations have been reconciled to 100% parity.
+
+### Verified & Registered Admin Panel Endpoints:
+- `GET /api/v1/admin/customers` - List customer accounts with search & status filters
+- `PATCH /api/v1/admin/customers/{id}/toggle-status` - Toggle block/unblock status for customer accounts
+- `GET /api/v1/admin/vendor/stores` - List all vendor stores with KYC & status filters
+- `PATCH /api/v1/admin/vendor/stores/{id}/kyc` - Moderate vendor KYC status
+- `POST /api/v1/admin/vendor/stores/{id}/approve` - Shortcut endpoint to approve and activate vendor store
+- `POST /api/v1/admin/vendor/stores/{id}/suspend` - Shortcut endpoint to suspend vendor store
+- `GET /api/v1/admin/vendor/settlements` - List payout settlement requests
+- `PATCH /api/v1/admin/vendor/settlements/{id}/process` - Process payout settlement status
+
