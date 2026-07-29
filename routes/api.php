@@ -28,6 +28,7 @@ use App\Http\Controllers\Api\V1\ReviewController;
 use App\Http\Controllers\Api\V1\SearchController;
 use App\Http\Controllers\Api\V1\SettingController;
 use App\Http\Controllers\Api\V1\ShippingController;
+use App\Http\Controllers\Api\V1\SubcategoryController;
 use App\Http\Controllers\Api\V1\SupportTicketController;
 use App\Http\Controllers\Api\V1\VendorStoreController;
 use App\Http\Controllers\Api\V1\WarehouseController;
@@ -52,7 +53,7 @@ Route::prefix('v1')->group(function () {
     Route::prefix('auth')->group(function () {
         Route::middleware('throttle:6,1')->group(function () {
             Route::post('/register', [AuthController::class, 'register']);
-            Route::post('/login', [AuthController::class, 'login'])->name('login');
+            Route::post('/login', [AuthController::class, 'login']);
             Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
             Route::post('/reset-password', [AuthController::class, 'resetPassword']);
         });
@@ -67,16 +68,15 @@ Route::prefix('v1')->group(function () {
         });
     });
 
-    // Authenticated User Profile Alias Endpoint (/api/v1/me)
-    Route::middleware('auth:sanctum')->get('/me', [AuthController::class, 'me']);
-
-
     // Public System Settings
     Route::get('/settings', [SettingController::class, 'index']);
 
     // Public Catalog Foundation Endpoints (Module 2)
     Route::get('/categories', [CategoryController::class, 'index']);
     Route::get('/categories/{slug}', [CategoryController::class, 'show']);
+    Route::get('/categories/{id}/subcategories', [SubcategoryController::class, 'index']);
+    Route::get('/subcategories', [SubcategoryController::class, 'index']);
+    Route::get('/subcategories/{slug}', [SubcategoryController::class, 'show']);
 
     Route::get('/brands', [BrandController::class, 'index']);
     Route::get('/brands/{slug}', [BrandController::class, 'show']);
@@ -208,6 +208,13 @@ Route::prefix('v1')->group(function () {
         Route::post('/categories', [CategoryController::class, 'store']);
         Route::put('/categories/{id}', [CategoryController::class, 'update']);
         Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
+
+        // Subcategory Management
+        Route::get('/subcategories', [SubcategoryController::class, 'index']);
+        Route::post('/subcategories', [SubcategoryController::class, 'store']);
+        Route::put('/subcategories/{id}', [SubcategoryController::class, 'update']);
+        Route::delete('/subcategories/{id}', [SubcategoryController::class, 'destroy']);
+        Route::patch('/subcategories/{id}/status', [SubcategoryController::class, 'updateStatus']);
 
         // Brand Management
         Route::post('/brands', [BrandController::class, 'store']);
