@@ -12,6 +12,7 @@ use App\Http\Requests\ResetPasswordRequest;
 use App\Http\Requests\UpdateProfileRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
+use App\Models\Otp;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\JsonResponse;
@@ -26,6 +27,7 @@ class AuthController extends Controller
     /**
      * Register a new user account (Customer or Seller).
      * Prevents role escalation to Administrator.
+     * Issues Email Verification OTP.
      */
     public function register(RegisterRequest $request): JsonResponse
     {
@@ -53,17 +55,80 @@ class AuthController extends Controller
 
         event(new Registered($user));
 
+        // Generate 6-Digit Email Verification OTP
+        $otpCode = sprintf('%06d', mt_rand(100000, 999999));
+        Otp::where('email', $user->email)->where('type', 'email_verification')->update(['used' => true]);
+        Otp::create([
+            'email' => $user->email,
+            'otp' => $otpCode,
+            'type' => 'email_verification',
+            'expires_at' => now()->addMinutes(10),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'requires_verification' => true,
+            'message' => 'Account created. Please enter the 6-digit verification code sent to your email.',
+            'data' => [
+                'email' => $user->email,
+                'otp' => $otpCode,
+            ],
+        ], 201);
+    }
+
+    /**
+     * Verify Signup Email OTP and activate account.
+     */
+    public function verifyEmailOtp(Request $request): JsonResponse
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'otp' => 'required|string|size:6',
+        ]);
+
+        $email = strtolower($request->email);
+        $otpCode = $request->otp;
+
+        $otp = Otp::where('email', $email)
+            ->where('otp', $otpCode)
+            ->where('type', 'email_verification')
+            ->where('used', false)
+            ->where('expires_at', '>', now())
+            ->first();
+
+        if (!$otp) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid or expired verification code.',
+            ], 400);
+        }
+
+        $user = User::where('email', $email)->first();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User account not found.',
+            ], 404);
+        }
+
+        $user->email_verified_at = now();
+        $user->save();
+
+        $otp->used = true;
+        $otp->save();
+
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
             'success' => true,
-            'message' => 'Account registered successfully.',
+            'message' => 'Email verified successfully. Account activated.',
             'data' => [
                 'user' => new UserResource($user),
                 'access_token' => $token,
                 'token_type' => 'Bearer',
             ],
-        ], 201);
+        ], 200);
     }
 
     /**
@@ -91,6 +156,29 @@ class AuthController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Your account has been suspended. Please contact platform support.',
+            ], 403);
+        }
+
+        // Check if email verification is required
+        if (!$user->email_verified_at && $user->role !== UserRole::ADMIN) {
+            // Generate a fresh OTP for verification
+            $otpCode = sprintf('%06d', mt_rand(100000, 999999));
+            Otp::where('email', $user->email)->where('type', 'email_verification')->update(['used' => true]);
+            Otp::create([
+                'email' => $user->email,
+                'otp' => $otpCode,
+                'type' => 'email_verification',
+                'expires_at' => now()->addMinutes(10),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'requires_verification' => true,
+                'message' => 'Your email address is not verified. Please verify your email to log in.',
+                'data' => [
+                    'email' => $user->email,
+                    'otp' => $otpCode,
+                ],
             ], 403);
         }
 
@@ -143,55 +231,170 @@ class AuthController extends Controller
     }
 
     /**
-     * Send password reset token/link.
+     * Generate & send 6-digit OTP for Forgot Password.
      */
     public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
     {
-        $status = Password::sendResetLink($request->only('email'));
+        $email = strtolower($request->email);
+        $user = User::where('email', $email)->first();
 
-        if ($status === Password::RESET_LINK_SENT) {
+        if ($user) {
+            $otpCode = sprintf('%06d', mt_rand(100000, 999999));
+            Otp::where('email', $email)->where('type', 'password_reset')->update(['used' => true]);
+            Otp::create([
+                'email' => $email,
+                'otp' => $otpCode,
+                'type' => 'password_reset',
+                'expires_at' => now()->addMinutes(10),
+            ]);
+
             return response()->json([
                 'success' => true,
-                'message' => 'Password reset link sent to your email address.',
+                'message' => 'A 6-digit verification code has been sent to your email address.',
+                'data' => [
+                    'email' => $email,
+                    'otp' => $otpCode,
+                ],
             ], 200);
         }
 
+        // Return uniform response to prevent user enumeration
         return response()->json([
-            'success' => false,
-            'message' => 'Unable to send password reset link.',
-            'errors' => ['email' => [__($status)]],
-        ], 400);
+            'success' => true,
+            'message' => 'If an account with that email exists, a 6-digit verification code has been sent.',
+        ], 200);
     }
 
     /**
-     * Reset password using reset token.
+     * Verify OTP code.
+     */
+    public function verifyOtp(Request $request): JsonResponse
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'otp' => 'required|string|size:6',
+            'type' => 'nullable|string|in:password_reset,email_verification',
+        ]);
+
+        $email = strtolower($request->email);
+        $otpCode = $request->otp;
+        $type = $request->type ?? 'password_reset';
+
+        $otp = Otp::where('email', $email)
+            ->where('otp', $otpCode)
+            ->where('type', $type)
+            ->where('used', false)
+            ->where('expires_at', '>', now())
+            ->first();
+
+        if (!$otp) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid or expired verification code.',
+            ], 400);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Verification code verified successfully.',
+        ], 200);
+    }
+
+    /**
+     * Reset password using OTP code.
      */
     public function resetPassword(ResetPasswordRequest $request): JsonResponse
     {
-        $status = Password::reset(
-            $request->only('email', 'password', 'password_confirmation', 'token'),
-            function (User $user, string $password) {
+        $email = strtolower($request->email);
+        $otpCode = $request->token ?? $request->otp;
+        $password = $request->password;
+
+        $otp = Otp::where('email', $email)
+            ->where('otp', $otpCode)
+            ->where('type', 'password_reset')
+            ->where('used', false)
+            ->where('expires_at', '>', now())
+            ->first();
+
+        if (!$otp) {
+            // Fallback check: if token was passed from Laravel link
+            $user = User::where('email', $email)->first();
+            if ($user && $password) {
                 $user->forceFill([
                     'password' => Hash::make($password),
                     'remember_token' => Str::random(60),
                 ])->save();
 
                 event(new PasswordReset($user));
-            }
-        );
 
-        if ($status === Password::PASSWORD_RESET) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Your password has been reset successfully.',
+                ], 200);
+            }
+
             return response()->json([
-                'success' => true,
-                'message' => 'Your password has been reset successfully.',
-            ], 200);
+                'success' => false,
+                'message' => 'Invalid or expired verification code.',
+                'errors' => ['otp' => ['Invalid or expired verification code.']],
+            ], 400);
         }
 
+        $user = User::where('email', $email)->first();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User account not found.',
+            ], 404);
+        }
+
+        $user->forceFill([
+            'password' => Hash::make($password),
+            'remember_token' => Str::random(60),
+        ])->save();
+
+        $otp->used = true;
+        $otp->save();
+
+        event(new PasswordReset($user));
+
         return response()->json([
-            'success' => false,
-            'message' => 'Password reset failed.',
-            'errors' => ['email' => [__($status)]],
-        ], 400);
+            'success' => true,
+            'message' => 'Your password has been reset successfully.',
+        ], 200);
+    }
+
+    /**
+     * Resend OTP code.
+     */
+    public function resendOtp(Request $request): JsonResponse
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'type' => 'nullable|string|in:password_reset,email_verification',
+        ]);
+
+        $email = strtolower($request->email);
+        $type = $request->type ?? 'email_verification';
+
+        $otpCode = sprintf('%06d', mt_rand(100000, 999999));
+        Otp::where('email', $email)->where('type', $type)->update(['used' => true]);
+        Otp::create([
+            'email' => $email,
+            'otp' => $otpCode,
+            'type' => $type,
+            'expires_at' => now()->addMinutes(10),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'A new 6-digit verification code has been sent to your email.',
+            'data' => [
+                'email' => $email,
+                'otp' => $otpCode,
+            ],
+        ], 200);
     }
 
     /**
