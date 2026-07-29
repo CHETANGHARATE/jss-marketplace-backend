@@ -65,14 +65,17 @@ class AuthController extends Controller
             'expires_at' => now()->addMinutes(10),
         ]);
 
+        $responseData = ['email' => $user->email];
+        // Strictly return demo_otp ONLY in local environment
+        if (app()->environment('local')) {
+            $responseData['demo_otp'] = $otpCode;
+        }
+
         return response()->json([
             'success' => true,
             'requires_verification' => true,
             'message' => 'Account created. Please enter the 6-digit verification code sent to your email.',
-            'data' => [
-                'email' => $user->email,
-                'otp' => $otpCode,
-            ],
+            'data' => $responseData,
         ], 201);
     }
 
@@ -171,14 +174,16 @@ class AuthController extends Controller
                 'expires_at' => now()->addMinutes(10),
             ]);
 
+            $responseData = ['email' => $user->email];
+            if (app()->environment('local')) {
+                $responseData['demo_otp'] = $otpCode;
+            }
+
             return response()->json([
                 'success' => false,
                 'requires_verification' => true,
                 'message' => 'Your email address is not verified. Please verify your email to log in.',
-                'data' => [
-                    'email' => $user->email,
-                    'otp' => $otpCode,
-                ],
+                'data' => $responseData,
             ], 403);
         }
 
@@ -248,13 +253,15 @@ class AuthController extends Controller
                 'expires_at' => now()->addMinutes(10),
             ]);
 
+            $responseData = ['email' => $email];
+            if (app()->environment('local')) {
+                $responseData['demo_otp'] = $otpCode;
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'A 6-digit verification code has been sent to your email address.',
-                'data' => [
-                    'email' => $email,
-                    'otp' => $otpCode,
-                ],
+                'data' => $responseData,
             ], 200);
         }
 
@@ -387,13 +394,15 @@ class AuthController extends Controller
             'expires_at' => now()->addMinutes(10),
         ]);
 
+        $responseData = ['email' => $email];
+        if (app()->environment('local')) {
+            $responseData['demo_otp'] = $otpCode;
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'A new 6-digit verification code has been sent to your email.',
-            'data' => [
-                'email' => $email,
-                'otp' => $otpCode,
-            ],
+            'data' => $responseData,
         ], 200);
     }
 
