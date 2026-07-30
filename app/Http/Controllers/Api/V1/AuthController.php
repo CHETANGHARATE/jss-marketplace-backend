@@ -11,6 +11,7 @@ use App\Http\Requests\RegisterRequest;
 use App\Http\Requests\ResetPasswordRequest;
 use App\Http\Requests\UpdateProfileRequest;
 use App\Http\Resources\UserResource;
+use App\Mail\OtpMail;
 use App\Models\User;
 use App\Models\Otp;
 use Illuminate\Auth\Events\PasswordReset;
@@ -19,6 +20,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 
@@ -27,7 +30,7 @@ class AuthController extends Controller
     /**
      * Register a new user account (Customer or Seller).
      * Prevents role escalation to Administrator.
-     * Issues Email Verification OTP.
+     * Issues Email Verification OTP via Laravel Mail.
      */
     public function register(RegisterRequest $request): JsonResponse
     {
@@ -64,6 +67,20 @@ class AuthController extends Controller
             'type' => 'email_verification',
             'expires_at' => now()->addMinutes(10),
         ]);
+
+        // Send OTP Email via Laravel Mail
+        try {
+            Mail::to($user->email)->send(new OtpMail($otpCode, 'email_verification'));
+        } catch (\Throwable $e) {
+            Log::error("Failed to send signup OTP email to {$user->email}: " . $e->getMessage());
+
+            if (!app()->environment('local')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unable to send verification email. Please verify mail server settings or try again later.',
+                ], 500);
+            }
+        }
 
         $responseData = ['email' => $user->email];
         // Strictly return demo_otp ONLY in local environment
@@ -174,6 +191,20 @@ class AuthController extends Controller
                 'expires_at' => now()->addMinutes(10),
             ]);
 
+            // Send OTP Email via Laravel Mail
+            try {
+                Mail::to($user->email)->send(new OtpMail($otpCode, 'email_verification'));
+            } catch (\Throwable $e) {
+                Log::error("Failed to send login verification OTP email to {$user->email}: " . $e->getMessage());
+
+                if (!app()->environment('local')) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Unable to send verification email. Please try again later.',
+                    ], 500);
+                }
+            }
+
             $responseData = ['email' => $user->email];
             if (app()->environment('local')) {
                 $responseData['demo_otp'] = $otpCode;
@@ -252,6 +283,20 @@ class AuthController extends Controller
                 'type' => 'password_reset',
                 'expires_at' => now()->addMinutes(10),
             ]);
+
+            // Send OTP Email via Laravel Mail
+            try {
+                Mail::to($email)->send(new OtpMail($otpCode, 'password_reset'));
+            } catch (\Throwable $e) {
+                Log::error("Failed to send forgot password OTP email to {$email}: " . $e->getMessage());
+
+                if (!app()->environment('local')) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Unable to send password reset email. Please try again later.',
+                    ], 500);
+                }
+            }
 
             $responseData = ['email' => $email];
             if (app()->environment('local')) {
@@ -393,6 +438,20 @@ class AuthController extends Controller
             'type' => $type,
             'expires_at' => now()->addMinutes(10),
         ]);
+
+        // Send OTP Email via Laravel Mail
+        try {
+            Mail::to($email)->send(new OtpMail($otpCode, $type));
+        } catch (\Throwable $e) {
+            Log::error("Failed to resend OTP email to {$email}: " . $e->getMessage());
+
+            if (!app()->environment('local')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unable to send verification email. Please try again later.',
+                ], 500);
+            }
+        }
 
         $responseData = ['email' => $email];
         if (app()->environment('local')) {
