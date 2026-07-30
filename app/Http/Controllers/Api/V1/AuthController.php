@@ -68,18 +68,21 @@ class AuthController extends Controller
             'expires_at' => now()->addMinutes(10),
         ]);
 
-        // Send OTP Email via Laravel Mail
-        try {
-            Mail::to($user->email)->send(new OtpMail($otpCode, 'email_verification'));
-        } catch (\Throwable $e) {
-            Log::error("Failed to send signup OTP email to {$user->email}: " . $e->getMessage());
+        // Audit Debug Log BEFORE
+        Log::info("AUDIT [Signup OTP Mail Dispatch]: Preparing synchronous mail dispatch to recipient [{$user->email}], mailer [" . config('mail.default') . "], host [" . config('mail.mailers.smtp.host') . ":" . config('mail.mailers.smtp.port') . "], from [" . config('mail.from.address') . "]");
 
-            if (!app()->environment('local')) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Unable to send verification email. Please verify mail server settings or try again later.',
-                ], 500);
-            }
+        try {
+            Log::info("AUDIT [Signup OTP Mail Dispatch]: Executing Mail::to('{$user->email}')->send()");
+            Mail::to($user->email)->send(new OtpMail($otpCode, 'email_verification'));
+            Log::info("AUDIT [Signup OTP Mail Dispatch]: Mail::to('{$user->email}')->send() completed successfully via SMTP transport.");
+        } catch (\Throwable $e) {
+            Log::error("AUDIT [Signup OTP Mail Dispatch Failure]: Exception caught during OTP email delivery to [{$user->email}]: " . $e->getMessage());
+            Log::error("AUDIT [Signup OTP Mail Stack Trace]:\n" . $e->getTraceAsString());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to deliver verification email via SMTP: ' . $e->getMessage(),
+            ], 500);
         }
 
         $responseData = ['email' => $user->email];
@@ -191,18 +194,21 @@ class AuthController extends Controller
                 'expires_at' => now()->addMinutes(10),
             ]);
 
-            // Send OTP Email via Laravel Mail
-            try {
-                Mail::to($user->email)->send(new OtpMail($otpCode, 'email_verification'));
-            } catch (\Throwable $e) {
-                Log::error("Failed to send login verification OTP email to {$user->email}: " . $e->getMessage());
+            // Audit Debug Log BEFORE
+            Log::info("AUDIT [Login OTP Mail Dispatch]: Preparing synchronous mail dispatch to recipient [{$user->email}], mailer [" . config('mail.default') . "], host [" . config('mail.mailers.smtp.host') . ":" . config('mail.mailers.smtp.port') . "], from [" . config('mail.from.address') . "]");
 
-                if (!app()->environment('local')) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Unable to send verification email. Please try again later.',
-                    ], 500);
-                }
+            try {
+                Log::info("AUDIT [Login OTP Mail Dispatch]: Executing Mail::to('{$user->email}')->send()");
+                Mail::to($user->email)->send(new OtpMail($otpCode, 'email_verification'));
+                Log::info("AUDIT [Login OTP Mail Dispatch]: Mail::to('{$user->email}')->send() completed successfully via SMTP transport.");
+            } catch (\Throwable $e) {
+                Log::error("AUDIT [Login OTP Mail Dispatch Failure]: Exception caught during OTP email delivery to [{$user->email}]: " . $e->getMessage());
+                Log::error("AUDIT [Login OTP Mail Stack Trace]:\n" . $e->getTraceAsString());
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to deliver login verification email via SMTP: ' . $e->getMessage(),
+                ], 500);
             }
 
             $responseData = ['email' => $user->email];
@@ -284,18 +290,21 @@ class AuthController extends Controller
                 'expires_at' => now()->addMinutes(10),
             ]);
 
-            // Send OTP Email via Laravel Mail
-            try {
-                Mail::to($email)->send(new OtpMail($otpCode, 'password_reset'));
-            } catch (\Throwable $e) {
-                Log::error("Failed to send forgot password OTP email to {$email}: " . $e->getMessage());
+            // Audit Debug Log BEFORE
+            Log::info("AUDIT [Forgot Password OTP Mail Dispatch]: Preparing synchronous mail dispatch to recipient [{$email}], mailer [" . config('mail.default') . "], host [" . config('mail.mailers.smtp.host') . ":" . config('mail.mailers.smtp.port') . "], from [" . config('mail.from.address') . "]");
 
-                if (!app()->environment('local')) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Unable to send password reset email. Please try again later.',
-                    ], 500);
-                }
+            try {
+                Log::info("AUDIT [Forgot Password OTP Mail Dispatch]: Executing Mail::to('{$email}')->send()");
+                Mail::to($email)->send(new OtpMail($otpCode, 'password_reset'));
+                Log::info("AUDIT [Forgot Password OTP Mail Dispatch]: Mail::to('{$email}')->send() completed successfully via SMTP transport.");
+            } catch (\Throwable $e) {
+                Log::error("AUDIT [Forgot Password OTP Mail Dispatch Failure]: Exception caught during OTP email delivery to [{$email}]: " . $e->getMessage());
+                Log::error("AUDIT [Forgot Password OTP Mail Stack Trace]:\n" . $e->getTraceAsString());
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to deliver password reset email via SMTP: ' . $e->getMessage(),
+                ], 500);
             }
 
             $responseData = ['email' => $email];
@@ -439,18 +448,21 @@ class AuthController extends Controller
             'expires_at' => now()->addMinutes(10),
         ]);
 
-        // Send OTP Email via Laravel Mail
-        try {
-            Mail::to($email)->send(new OtpMail($otpCode, $type));
-        } catch (\Throwable $e) {
-            Log::error("Failed to resend OTP email to {$email}: " . $e->getMessage());
+        // Audit Debug Log BEFORE
+        Log::info("AUDIT [Resend OTP Mail Dispatch]: Preparing synchronous mail dispatch to recipient [{$email}], mailer [" . config('mail.default') . "], host [" . config('mail.mailers.smtp.host') . ":" . config('mail.mailers.smtp.port') . "], from [" . config('mail.from.address') . "]");
 
-            if (!app()->environment('local')) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Unable to send verification email. Please try again later.',
-                ], 500);
-            }
+        try {
+            Log::info("AUDIT [Resend OTP Mail Dispatch]: Executing Mail::to('{$email}')->send()");
+            Mail::to($email)->send(new OtpMail($otpCode, $type));
+            Log::info("AUDIT [Resend OTP Mail Dispatch]: Mail::to('{$email}')->send() completed successfully via SMTP transport.");
+        } catch (\Throwable $e) {
+            Log::error("AUDIT [Resend OTP Mail Dispatch Failure]: Exception caught during OTP email delivery to [{$email}]: " . $e->getMessage());
+            Log::error("AUDIT [Resend OTP Mail Stack Trace]:\n" . $e->getTraceAsString());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to resend verification email via SMTP: ' . $e->getMessage(),
+            ], 500);
         }
 
         $responseData = ['email' => $email];
