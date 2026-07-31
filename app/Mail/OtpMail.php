@@ -8,6 +8,8 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
+if (!class_exists('App\Mail\OtpMail', false)) {
+
 class OtpMail extends Mailable
 {
     use Queueable, SerializesModels;
@@ -62,4 +64,6 @@ class OtpMail extends Mailable
     {
         return [];
     }
+}
+
 }
