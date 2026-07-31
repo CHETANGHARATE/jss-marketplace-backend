@@ -28,6 +28,22 @@ use Illuminate\Support\Str;
 class AuthController extends Controller
 {
     /**
+     * Helper to audit and log SMTP configuration before mail dispatch.
+     */
+    private function logSmtpAudit(string $action, string $recipientEmail): void
+    {
+        $mailer = config('mail.default');
+        $host = config('mail.mailers.smtp.host');
+        $port = config('mail.mailers.smtp.port');
+        $encryption = config('mail.mailers.smtp.encryption');
+        $username = config('mail.mailers.smtp.username');
+        $fromAddress = config('mail.from.address');
+        $fromName = config('mail.from.name');
+
+        Log::info("AUDIT [{$action}]: Target Recipient [{$recipientEmail}], Mailer [{$mailer}], Host [{$host}:{$port}], Encryption [{$encryption}], Username [{$username}], From Address [{$fromAddress}], From Name [{$fromName}]");
+    }
+
+    /**
      * Register a new user account (Customer or Seller).
      * Prevents role escalation to Administrator.
      * Issues Email Verification OTP via Laravel Mail.
@@ -68,8 +84,8 @@ class AuthController extends Controller
             'expires_at' => now()->addMinutes(10),
         ]);
 
-        // Audit Debug Log BEFORE
-        Log::info("AUDIT [Signup OTP Mail Dispatch]: Preparing synchronous mail dispatch to recipient [{$user->email}], mailer [" . config('mail.default') . "], host [" . config('mail.mailers.smtp.host') . ":" . config('mail.mailers.smtp.port') . "], from [" . config('mail.from.address') . "]");
+        // Audit Debug Log BEFORE Mail Dispatch
+        $this->logSmtpAudit('Signup OTP Mail Dispatch', $user->email);
 
         try {
             Log::info("AUDIT [Signup OTP Mail Dispatch]: Executing Mail::to('{$user->email}')->send()");
@@ -194,8 +210,8 @@ class AuthController extends Controller
                 'expires_at' => now()->addMinutes(10),
             ]);
 
-            // Audit Debug Log BEFORE
-            Log::info("AUDIT [Login OTP Mail Dispatch]: Preparing synchronous mail dispatch to recipient [{$user->email}], mailer [" . config('mail.default') . "], host [" . config('mail.mailers.smtp.host') . ":" . config('mail.mailers.smtp.port') . "], from [" . config('mail.from.address') . "]");
+            // Audit Debug Log BEFORE Mail Dispatch
+            $this->logSmtpAudit('Login OTP Mail Dispatch', $user->email);
 
             try {
                 Log::info("AUDIT [Login OTP Mail Dispatch]: Executing Mail::to('{$user->email}')->send()");
@@ -290,8 +306,8 @@ class AuthController extends Controller
                 'expires_at' => now()->addMinutes(10),
             ]);
 
-            // Audit Debug Log BEFORE
-            Log::info("AUDIT [Forgot Password OTP Mail Dispatch]: Preparing synchronous mail dispatch to recipient [{$email}], mailer [" . config('mail.default') . "], host [" . config('mail.mailers.smtp.host') . ":" . config('mail.mailers.smtp.port') . "], from [" . config('mail.from.address') . "]");
+            // Audit Debug Log BEFORE Mail Dispatch
+            $this->logSmtpAudit('Forgot Password OTP Mail Dispatch', $email);
 
             try {
                 Log::info("AUDIT [Forgot Password OTP Mail Dispatch]: Executing Mail::to('{$email}')->send()");
@@ -448,8 +464,8 @@ class AuthController extends Controller
             'expires_at' => now()->addMinutes(10),
         ]);
 
-        // Audit Debug Log BEFORE
-        Log::info("AUDIT [Resend OTP Mail Dispatch]: Preparing synchronous mail dispatch to recipient [{$email}], mailer [" . config('mail.default') . "], host [" . config('mail.mailers.smtp.host') . ":" . config('mail.mailers.smtp.port') . "], from [" . config('mail.from.address') . "]");
+        // Audit Debug Log BEFORE Mail Dispatch
+        $this->logSmtpAudit('Resend OTP Mail Dispatch', $email);
 
         try {
             Log::info("AUDIT [Resend OTP Mail Dispatch]: Executing Mail::to('{$email}')->send()");

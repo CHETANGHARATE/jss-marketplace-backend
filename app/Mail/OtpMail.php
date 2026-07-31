@@ -3,7 +3,6 @@
 namespace App\Mail;
 
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -30,9 +29,10 @@ class OtpMail extends Mailable
      */
     public function envelope(): Envelope
     {
+        $appName = config('app.name', 'JSS Solutions');
         $subject = $this->type === 'email_verification'
-            ? 'Verify Your Email Address - JSS Marketplace'
-            : 'Password Reset Verification Code - JSS Marketplace';
+            ? "Verify Your Email Address - {$appName}"
+            : "Password Reset Verification Code - {$appName}";
 
         return new Envelope(
             subject: $subject,

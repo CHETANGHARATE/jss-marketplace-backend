@@ -107,8 +107,8 @@ return [
     */
 
     'from' => [
-        'address' => env('MAIL_FROM_ADDRESS', 'no-reply@jssmarketplace.com'),
-        'name' => env('MAIL_FROM_NAME', 'JSS Marketplace'),
+        'address' => env('MAIL_FROM_ADDRESS', 'no-reply@jsssolutions.in'),
+        'name' => env('MAIL_FROM_NAME', 'JSS Solutions'),
     ],
 
 ];
