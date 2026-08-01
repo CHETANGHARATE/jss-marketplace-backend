@@ -76,6 +76,31 @@ Route::get('/debug/mail-test', function (\Illuminate\Http\Request $request) {
     }
 });
 
+Route::get('/debug/otp-mail-test', function (\Illuminate\Http\Request $request) {
+    $to = $request->query('to') ?: ($request->query('email') ?: 'YOUR_GMAIL@gmail.com');
+
+    \Illuminate\Support\Facades\Log::info("OTP_MAIL_TEST: Executing Mail::to('{$to}')->send(new OtpMail(...))");
+
+    try {
+        $mailable = new \App\Mail\OtpMail('123456', 'email_verification');
+        \Illuminate\Support\Facades\Mail::to($to)->send($mailable);
+
+        \Illuminate\Support\Facades\Log::info("OTP_MAIL_TEST: Mail::to('{$to}')->send() completed successfully");
+
+        return response()->json([
+            'success' => true,
+            'message' => 'OtpMail test dispatched successfully to ' . $to,
+            'mailable' => get_class($mailable),
+        ]);
+    } catch (\Throwable $e) {
+        \Illuminate\Support\Facades\Log::error("OTP_MAIL_TEST_FAILED to [{$to}]: " . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to deliver OtpMail: ' . $e->getMessage(),
+        ], 500);
+    }
+});
+
 Route::prefix('v1')->group(function () {
     
     // System Health Check Diagnostic (Module 14)
