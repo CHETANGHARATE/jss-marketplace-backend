@@ -77,33 +77,11 @@ class AuthController extends Controller
         // [5] Log: before Mail::to()->send()
         Log::info("OTP_DEBUG [{$action}][5/8] BEFORE Mail::to('{$recipient}')->send() — about to hand off to Symfony Mailer transport");
 
-        // [8] Register a one-time listener to capture the Symfony Message-ID from the MessageSent event.
-        // MessageSent::$message is a Symfony\Component\Mime\Email; its headers contain the Message-ID.
-        $capturedMessageId = null;
-        $listenerRef = Event::listen(MessageSent::class, function (MessageSent $event) use (&$capturedMessageId, $action) {
-            try {
-                // $event->message is Symfony\Component\Mime\Email (the raw Symfony message object)
-                $headers = $event->message->getHeaders();
-                if ($headers->has('Message-ID')) {
-                    $capturedMessageId = $headers->get('Message-ID')->getBodyAsString();
-                }
-            } catch (\Throwable $msgEx) {
-                Log::warning("OTP_DEBUG [{$action}][8/8] Message-ID listener error: " . $msgEx->getMessage());
-            }
-        });
-
         try {
             Mail::to($recipient)->send($otpMailObject);
 
             // [6] Log: after successful send
             Log::info("OTP_DEBUG [{$action}][6/8] AFTER Mail::to('{$recipient}')->send() — SMTP transport accepted the message without exception");
-
-            // [8] Log: Symfony Message-ID (captured by MessageSent event listener above)
-            if ($capturedMessageId) {
-                Log::info("OTP_DEBUG [{$action}][8/8] Symfony Message-ID: [{$capturedMessageId}]");
-            } else {
-                Log::info("OTP_DEBUG [{$action}][8/8] Symfony Message-ID: [not captured — check Exim mainlog for recipient: {$recipient}]");
-            }
 
         } catch (\Throwable $e) {
             // [7] Log: full exception message — do NOT suppress, re-throw

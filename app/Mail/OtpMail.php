@@ -4,8 +4,6 @@ namespace App\Mail;
 
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
-use Illuminate\Mail\Mailables\Content;
-use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
 if (!class_exists('App\Mail\OtpMail', false)) {
@@ -27,42 +25,18 @@ class OtpMail extends Mailable
     }
 
     /**
-     * Get the message envelope.
+     * Build the message using classic Laravel Mailable API.
      */
-    public function envelope(): Envelope
+    public function build()
     {
         $appName = config('app.name', 'JSS Solutions');
         $subject = $this->type === 'email_verification'
             ? "Verify Your Email Address - {$appName}"
             : "Password Reset Verification Code - {$appName}";
 
-        return new Envelope(
-            subject: $subject,
-        );
-    }
-
-    /**
-     * Get the message content definition.
-     */
-    public function content(): Content
-    {
-        return new Content(
-            text: 'emails.otp_plain',
-            with: [
-                'otpCode' => $this->otpCode,
-                'type' => $this->type,
-            ],
-        );
-    }
-
-    /**
-     * Get the attachments for the message.
-     *
-     * @return array<int, \Illuminate\Mail\Mailables\Attachment>
-     */
-    public function attachments(): array
-    {
-        return [];
+        return $this
+            ->subject($subject)
+            ->text('emails.otp_plain');
     }
 }
 
