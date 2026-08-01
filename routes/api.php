@@ -44,10 +44,72 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
+// Temporary SMTP Isolation Debug Endpoint (Top-level /api/debug/mail-test and /api/v1/debug/mail-test)
+Route::get('/debug/mail-test', function (\Illuminate\Http\Request $request) {
+    $to = $request->query('to') ?: ($request->query('email') ?: 'YOUR_GMAIL@gmail.com');
+
+    \Illuminate\Support\Facades\Log::info("RAW_MAIL_TEST: Executing Mail::raw to [{$to}]");
+
+    try {
+        \Illuminate\Support\Facades\Mail::raw(
+            "OTP TEST\n\nCode: 123456",
+            function ($message) use ($to) {
+                $message->to($to);
+                $message->from("no-reply@jsssolutions.in", "JSS Marketplace");
+                $message->subject("Laravel Raw Mail Test");
+            }
+        );
+
+        \Illuminate\Support\Facades\Log::info("RAW_MAIL_TEST: Mail::raw completed successfully to [{$to}]");
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Raw mail test dispatched successfully',
+            'recipient' => $to,
+        ]);
+    } catch (\Throwable $e) {
+        \Illuminate\Support\Facades\Log::error("RAW_MAIL_TEST_FAILED to [{$to}]: " . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to deliver raw mail: ' . $e->getMessage(),
+        ], 500);
+    }
+});
+
 Route::prefix('v1')->group(function () {
     
     // System Health Check Diagnostic (Module 14)
     Route::get('/health', [HealthController::class, 'check']);
+    Route::get('/debug/mail-test', function (\Illuminate\Http\Request $request) {
+        $to = $request->query('to') ?: ($request->query('email') ?: 'YOUR_GMAIL@gmail.com');
+
+        \Illuminate\Support\Facades\Log::info("RAW_MAIL_TEST (v1): Executing Mail::raw to [{$to}]");
+
+        try {
+            \Illuminate\Support\Facades\Mail::raw(
+                "OTP TEST\n\nCode: 123456",
+                function ($message) use ($to) {
+                    $message->to($to);
+                    $message->from("no-reply@jsssolutions.in", "JSS Marketplace");
+                    $message->subject("Laravel Raw Mail Test");
+                }
+            );
+
+            \Illuminate\Support\Facades\Log::info("RAW_MAIL_TEST (v1): Mail::raw completed successfully to [{$to}]");
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Raw mail test dispatched successfully',
+                'recipient' => $to,
+            ]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("RAW_MAIL_TEST_FAILED (v1) to [{$to}]: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to deliver raw mail: ' . $e->getMessage(),
+            ], 500);
+        }
+    });
 
     // Authentication Endpoints (Rate Limited to 6 attempts/minute)
     Route::prefix('auth')->group(function () {
