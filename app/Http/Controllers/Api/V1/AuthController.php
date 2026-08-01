@@ -18,7 +18,9 @@ use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Mail\Events\MessageSent;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -75,47 +77,36 @@ class AuthController extends Controller
         // [5] Log: before Mail::to()->send()
         Log::info("OTP_DEBUG [{$action}][5/8] BEFORE Mail::to('{$recipient}')->send() — about to hand off to Symfony Mailer transport");
 
-        try {
-            // Capture the Symfony message after send via Mail::sent() listener
-            $capturedMessageId = null;
-            Mail::getSwiftMailer(); // triggers initialization if not already done — safe no-op on modern Laravel
-
-            Mail::to($recipient)->send($otpMailObject);
-
-            // [6] Log: after Mail::to()->send() with Message-ID if available
-            // Try to retrieve the Message-ID from the last sent message via Symfony transport
+        // [8] Register a one-time listener to capture the Symfony Message-ID from the MessageSent event.
+        // MessageSent::$message is a Symfony\Component\Mime\Email; its headers contain the Message-ID.
+        $capturedMessageId = null;
+        $listenerRef = Event::listen(MessageSent::class, function (MessageSent $event) use (&$capturedMessageId, $action) {
             try {
-                // Attempt to extract Message-ID from the mailable after send
-                $symfonyMessage = method_exists($otpMailObject, 'toSymfonyMessage')
-                    ? $otpMailObject->toSymfonyMessage()
-                    : null;
-
-                if ($symfonyMessage && method_exists($symfonyMessage, 'getMessageId')) {
-                    $capturedMessageId = $symfonyMessage->getMessageId();
-                } elseif ($symfonyMessage) {
-                    // Try headers
-                    $headers = $symfonyMessage->getHeaders();
-                    if ($headers && $headers->has('Message-ID')) {
-                        $capturedMessageId = $headers->get('Message-ID')->getBodyAsString();
-                    }
+                // $event->message is Symfony\Component\Mime\Email (the raw Symfony message object)
+                $headers = $event->message->getHeaders();
+                if ($headers->has('Message-ID')) {
+                    $capturedMessageId = $headers->get('Message-ID')->getBodyAsString();
                 }
-            } catch (\Throwable $msgIdEx) {
-                // Non-critical — Message-ID extraction failure should not block the flow
-                Log::warning("OTP_DEBUG [{$action}][8/8] Could not extract Symfony Message-ID: " . $msgIdEx->getMessage());
+            } catch (\Throwable $msgEx) {
+                Log::warning("OTP_DEBUG [{$action}][8/8] Message-ID listener error: " . $msgEx->getMessage());
             }
+        });
 
-            // [8] Log: Symfony Message-ID (if captured)
-            if ($capturedMessageId) {
-                Log::info("OTP_DEBUG [{$action}][8/8] Symfony Message-ID: [{$capturedMessageId}]");
-            } else {
-                Log::info("OTP_DEBUG [{$action}][8/8] Symfony Message-ID: [not available via mailable — check Exim mainlog for envelope-from: {$recipient}]");
-            }
+        try {
+            Mail::to($recipient)->send($otpMailObject);
 
             // [6] Log: after successful send
             Log::info("OTP_DEBUG [{$action}][6/8] AFTER Mail::to('{$recipient}')->send() — SMTP transport accepted the message without exception");
 
+            // [8] Log: Symfony Message-ID (captured by MessageSent event listener above)
+            if ($capturedMessageId) {
+                Log::info("OTP_DEBUG [{$action}][8/8] Symfony Message-ID: [{$capturedMessageId}]");
+            } else {
+                Log::info("OTP_DEBUG [{$action}][8/8] Symfony Message-ID: [not captured — check Exim mainlog for recipient: {$recipient}]");
+            }
+
         } catch (\Throwable $e) {
-            // [7] Log: full exception message
+            // [7] Log: full exception message — do NOT suppress, re-throw
             Log::error("OTP_DEBUG [{$action}][7/8] EXCEPTION during Mail::to('{$recipient}')->send(): " . $e->getMessage());
             Log::error("OTP_DEBUG [{$action}][7/8] Exception class: " . get_class($e));
             Log::error("OTP_DEBUG [{$action}][7/8] Exception file: " . $e->getFile() . " line " . $e->getLine());
