@@ -44,6 +44,89 @@ class AuthController extends Controller
     }
 
     /**
+     * Central OTP mail dispatcher with full granular debug logging.
+     * Logs all 8 required items. Does NOT suppress exceptions.
+     *
+     * @param string $action    Human-readable label for the dispatch context (e.g. "Register", "Login")
+     * @param string $recipient Recipient email address
+     * @param string $otpCode   The 6-digit OTP code being sent
+     * @param string $type      OTP type: 'email_verification' or 'password_reset'
+     * @throws \Throwable Re-throws any SMTP exception so the caller can return a 500 response
+     */
+    private function dispatchOtpMail(string $action, string $recipient, string $otpCode, string $type): void
+    {
+        // [1] Log: registration email / recipient received
+        Log::info("OTP_DEBUG [{$action}][1/8] Recipient email received: [{$recipient}]");
+
+        // [2] Log: OTP generated (masked last 2 digits for security, keep first 4 visible in debug)
+        $maskedOtp = substr($otpCode, 0, 4) . '**';
+        Log::info("OTP_DEBUG [{$action}][2/8] OTP generated: [{$maskedOtp}], type=[{$type}], length=[" . strlen($otpCode) . "]");
+
+        // [3] Log: recipient passed to Mail::to()
+        Log::info("OTP_DEBUG [{$action}][3/8] Passing recipient to Mail::to(): [{$recipient}]");
+
+        // [4] Build OtpMail object and log success
+        $otpMailObject = new OtpMail($otpCode, $type);
+        Log::info("OTP_DEBUG [{$action}][4/8] OtpMail object created successfully: class=[" . get_class($otpMailObject) . "], view=[emails.otp], type=[{$type}]");
+
+        // SMTP config dump before dispatch
+        $this->logSmtpAudit("{$action} OTP Mail Dispatch", $recipient);
+
+        // [5] Log: before Mail::to()->send()
+        Log::info("OTP_DEBUG [{$action}][5/8] BEFORE Mail::to('{$recipient}')->send() — about to hand off to Symfony Mailer transport");
+
+        try {
+            // Capture the Symfony message after send via Mail::sent() listener
+            $capturedMessageId = null;
+            Mail::getSwiftMailer(); // triggers initialization if not already done — safe no-op on modern Laravel
+
+            Mail::to($recipient)->send($otpMailObject);
+
+            // [6] Log: after Mail::to()->send() with Message-ID if available
+            // Try to retrieve the Message-ID from the last sent message via Symfony transport
+            try {
+                // Attempt to extract Message-ID from the mailable after send
+                $symfonyMessage = method_exists($otpMailObject, 'toSymfonyMessage')
+                    ? $otpMailObject->toSymfonyMessage()
+                    : null;
+
+                if ($symfonyMessage && method_exists($symfonyMessage, 'getMessageId')) {
+                    $capturedMessageId = $symfonyMessage->getMessageId();
+                } elseif ($symfonyMessage) {
+                    // Try headers
+                    $headers = $symfonyMessage->getHeaders();
+                    if ($headers && $headers->has('Message-ID')) {
+                        $capturedMessageId = $headers->get('Message-ID')->getBodyAsString();
+                    }
+                }
+            } catch (\Throwable $msgIdEx) {
+                // Non-critical — Message-ID extraction failure should not block the flow
+                Log::warning("OTP_DEBUG [{$action}][8/8] Could not extract Symfony Message-ID: " . $msgIdEx->getMessage());
+            }
+
+            // [8] Log: Symfony Message-ID (if captured)
+            if ($capturedMessageId) {
+                Log::info("OTP_DEBUG [{$action}][8/8] Symfony Message-ID: [{$capturedMessageId}]");
+            } else {
+                Log::info("OTP_DEBUG [{$action}][8/8] Symfony Message-ID: [not available via mailable — check Exim mainlog for envelope-from: {$recipient}]");
+            }
+
+            // [6] Log: after successful send
+            Log::info("OTP_DEBUG [{$action}][6/8] AFTER Mail::to('{$recipient}')->send() — SMTP transport accepted the message without exception");
+
+        } catch (\Throwable $e) {
+            // [7] Log: full exception message
+            Log::error("OTP_DEBUG [{$action}][7/8] EXCEPTION during Mail::to('{$recipient}')->send(): " . $e->getMessage());
+            Log::error("OTP_DEBUG [{$action}][7/8] Exception class: " . get_class($e));
+            Log::error("OTP_DEBUG [{$action}][7/8] Exception file: " . $e->getFile() . " line " . $e->getLine());
+            Log::error("OTP_DEBUG [{$action}][7/8] Full stack trace:\n" . $e->getTraceAsString());
+
+            // Re-throw — do NOT suppress
+            throw $e;
+        }
+    }
+
+    /**
      * Register a new user account (Customer or Seller).
      * Prevents role escalation to Administrator.
      * Issues Email Verification OTP via Laravel Mail.
@@ -84,17 +167,9 @@ class AuthController extends Controller
             'expires_at' => now()->addMinutes(10),
         ]);
 
-        // Audit Debug Log BEFORE Mail Dispatch
-        $this->logSmtpAudit('Signup OTP Mail Dispatch', $user->email);
-
         try {
-            Log::info("AUDIT [Signup OTP Mail Dispatch]: Executing Mail::to('{$user->email}')->send()");
-            Mail::to($user->email)->send(new OtpMail($otpCode, 'email_verification'));
-            Log::info("AUDIT [Signup OTP Mail Dispatch]: Mail::to('{$user->email}')->send() completed successfully via SMTP transport.");
+            $this->dispatchOtpMail('Register', $user->email, $otpCode, 'email_verification');
         } catch (\Throwable $e) {
-            Log::error("AUDIT [Signup OTP Mail Dispatch Failure]: Exception caught during OTP email delivery to [{$user->email}]: " . $e->getMessage());
-            Log::error("AUDIT [Signup OTP Mail Stack Trace]:\n" . $e->getTraceAsString());
-
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to deliver verification email via SMTP: ' . $e->getMessage(),
@@ -210,17 +285,9 @@ class AuthController extends Controller
                 'expires_at' => now()->addMinutes(10),
             ]);
 
-            // Audit Debug Log BEFORE Mail Dispatch
-            $this->logSmtpAudit('Login OTP Mail Dispatch', $user->email);
-
             try {
-                Log::info("AUDIT [Login OTP Mail Dispatch]: Executing Mail::to('{$user->email}')->send()");
-                Mail::to($user->email)->send(new OtpMail($otpCode, 'email_verification'));
-                Log::info("AUDIT [Login OTP Mail Dispatch]: Mail::to('{$user->email}')->send() completed successfully via SMTP transport.");
+                $this->dispatchOtpMail('Login', $user->email, $otpCode, 'email_verification');
             } catch (\Throwable $e) {
-                Log::error("AUDIT [Login OTP Mail Dispatch Failure]: Exception caught during OTP email delivery to [{$user->email}]: " . $e->getMessage());
-                Log::error("AUDIT [Login OTP Mail Stack Trace]:\n" . $e->getTraceAsString());
-
                 return response()->json([
                     'success' => false,
                     'message' => 'Failed to deliver login verification email via SMTP: ' . $e->getMessage(),
@@ -306,17 +373,9 @@ class AuthController extends Controller
                 'expires_at' => now()->addMinutes(10),
             ]);
 
-            // Audit Debug Log BEFORE Mail Dispatch
-            $this->logSmtpAudit('Forgot Password OTP Mail Dispatch', $email);
-
             try {
-                Log::info("AUDIT [Forgot Password OTP Mail Dispatch]: Executing Mail::to('{$email}')->send()");
-                Mail::to($email)->send(new OtpMail($otpCode, 'password_reset'));
-                Log::info("AUDIT [Forgot Password OTP Mail Dispatch]: Mail::to('{$email}')->send() completed successfully via SMTP transport.");
+                $this->dispatchOtpMail('ForgotPassword', $email, $otpCode, 'password_reset');
             } catch (\Throwable $e) {
-                Log::error("AUDIT [Forgot Password OTP Mail Dispatch Failure]: Exception caught during OTP email delivery to [{$email}]: " . $e->getMessage());
-                Log::error("AUDIT [Forgot Password OTP Mail Stack Trace]:\n" . $e->getTraceAsString());
-
                 return response()->json([
                     'success' => false,
                     'message' => 'Failed to deliver password reset email via SMTP: ' . $e->getMessage(),
@@ -464,17 +523,9 @@ class AuthController extends Controller
             'expires_at' => now()->addMinutes(10),
         ]);
 
-        // Audit Debug Log BEFORE Mail Dispatch
-        $this->logSmtpAudit('Resend OTP Mail Dispatch', $email);
-
         try {
-            Log::info("AUDIT [Resend OTP Mail Dispatch]: Executing Mail::to('{$email}')->send()");
-            Mail::to($email)->send(new OtpMail($otpCode, $type));
-            Log::info("AUDIT [Resend OTP Mail Dispatch]: Mail::to('{$email}')->send() completed successfully via SMTP transport.");
+            $this->dispatchOtpMail('ResendOtp', $email, $otpCode, $type);
         } catch (\Throwable $e) {
-            Log::error("AUDIT [Resend OTP Mail Dispatch Failure]: Exception caught during OTP email delivery to [{$email}]: " . $e->getMessage());
-            Log::error("AUDIT [Resend OTP Mail Stack Trace]:\n" . $e->getTraceAsString());
-
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to resend verification email via SMTP: ' . $e->getMessage(),
