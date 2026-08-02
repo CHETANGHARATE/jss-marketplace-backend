@@ -30,9 +30,9 @@ class OtpMail extends Mailable
      */
     public function envelope(): Envelope
     {
-        $appName = config('app.name', 'JSS Marketplace');
+        $appName = config('app.name', 'JSS Marketplace API');
         $fromAddress = config('mail.from.address', 'no-reply@jsssolutions.in');
-        $fromName = config('mail.from.name', 'JSS Marketplace');
+        $fromName = config('mail.from.name', 'JSS Marketplace API');
 
         $subject = $this->type === 'email_verification'
             ? "Verify Your Email Address - {$appName}"
