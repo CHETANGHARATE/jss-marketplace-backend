@@ -42,8 +42,7 @@ class UserFactory extends Factory
     public function configure(): static
     {
         return $this->afterCreating(function (User $user) {
-            Role::findOrCreate($user->role->value, 'web');
-            $user->assignRole($user->role->value);
+            $user->assignRoleSafely($user->role->value);
         });
     }
 }
