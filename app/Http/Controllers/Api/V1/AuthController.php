@@ -121,8 +121,8 @@ class AuthController extends Controller
             'status' => UserStatus::ACTIVE,
         ]);
 
-        // Assign Spatie Role as single source of truth
-        $user->assignRole($role->value);
+        // Assign Spatie Role as single source of truth safely across sanctum, web, and api guards
+        $user->assignRoleSafely($role->value);
 
         event(new Registered($user));
 

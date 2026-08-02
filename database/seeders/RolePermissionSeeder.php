@@ -18,6 +18,8 @@ class RolePermissionSeeder extends Seeder
         // Reset cached roles and permissions
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
+        $guards = ['sanctum', 'web', 'api'];
+
         // Create Permissions
         $permissions = [
             // Admin permissions
@@ -45,32 +47,40 @@ class RolePermissionSeeder extends Seeder
             'manage-cart-wishlist',
         ];
 
-        foreach ($permissions as $permission) {
-            Permission::findOrCreate($permission, 'web');
+        foreach ($guards as $guard) {
+            foreach ($permissions as $permission) {
+                Permission::findOrCreate($permission, $guard);
+            }
+
+            // 1. Super Admin Role
+            $superAdminRole = Role::findOrCreate('super_admin', $guard);
+            $superAdminRole->givePermissionTo(Permission::where('guard_name', $guard)->get());
+
+            // 2. Admin Role
+            $adminRole = Role::findOrCreate(UserRole::ADMIN->value, $guard);
+            $adminRole->givePermissionTo(Permission::where('guard_name', $guard)->get());
+
+            // 3. Seller Role
+            $sellerRole = Role::findOrCreate(UserRole::SELLER->value, $guard);
+            $sellerRole->givePermissionTo(Permission::where('guard_name', $guard)->whereIn('name', [
+                'manage-own-store',
+                'manage-own-products',
+                'manage-own-orders',
+                'view-own-wallet',
+                'request-payout',
+                'manage-own-profile',
+                'manage-own-addresses',
+            ])->get());
+
+            // 4. Customer Role
+            $customerRole = Role::findOrCreate(UserRole::CUSTOMER->value, $guard);
+            $customerRole->givePermissionTo(Permission::where('guard_name', $guard)->whereIn('name', [
+                'place-orders',
+                'write-reviews',
+                'manage-own-profile',
+                'manage-own-addresses',
+                'manage-cart-wishlist',
+            ])->get());
         }
-
-        // Create Roles and Assign Permissions
-        $adminRole = Role::findOrCreate(UserRole::ADMIN->value, 'web');
-        $adminRole->givePermissionTo(Permission::all());
-
-        $sellerRole = Role::findOrCreate(UserRole::SELLER->value, 'web');
-        $sellerRole->givePermissionTo([
-            'manage-own-store',
-            'manage-own-products',
-            'manage-own-orders',
-            'view-own-wallet',
-            'request-payout',
-            'manage-own-profile',
-            'manage-own-addresses',
-        ]);
-
-        $customerRole = Role::findOrCreate(UserRole::CUSTOMER->value, 'web');
-        $customerRole->givePermissionTo([
-            'place-orders',
-            'write-reviews',
-            'manage-own-profile',
-            'manage-own-addresses',
-            'manage-cart-wishlist',
-        ]);
     }
 }

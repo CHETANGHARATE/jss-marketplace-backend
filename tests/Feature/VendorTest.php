@@ -48,7 +48,7 @@ class VendorTest extends TestCase
         $store = $storeService->registerStore($user, ['store_name' => 'Test Vendor Store']);
 
         $admin = User::factory()->create(['role' => UserRole::ADMIN]);
-        $admin->assignRole(UserRole::ADMIN->value);
+        $admin->assignRoleSafely(UserRole::ADMIN->value);
 
         $response = $this->actingAs($admin, 'sanctum')->patchJson("/api/v1/admin/vendor/stores/{$store->id}/kyc", [
             'kyc_status' => 'verified',
@@ -88,7 +88,7 @@ class VendorTest extends TestCase
 
         // Admin approves settlement
         $admin = User::factory()->create(['role' => UserRole::ADMIN]);
-        $admin->assignRole(UserRole::ADMIN->value);
+        $admin->assignRoleSafely(UserRole::ADMIN->value);
 
         $adminRes = $this->actingAs($admin, 'sanctum')->patchJson("/api/v1/admin/vendor/settlements/{$settlementId}/process", [
             'status' => 'paid',

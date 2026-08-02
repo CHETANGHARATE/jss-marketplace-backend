@@ -11,10 +11,12 @@ class VendorStoreResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'user_id' => $this->user_id,
+            'owner_name' => $this->user?->name ?? 'N/A',
             'store_name' => $this->store_name,
             'slug' => $this->slug,
-            'store_email' => $this->store_email,
-            'store_phone' => $this->store_phone,
+            'store_email' => $this->store_email ?? $this->user?->email,
+            'store_phone' => $this->store_phone ?? $this->user?->phone,
             'logo' => $this->logo,
             'banner' => $this->banner,
             'description' => $this->description,

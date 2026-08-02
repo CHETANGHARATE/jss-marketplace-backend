@@ -390,9 +390,12 @@ Route::prefix('v1')->group(function () {
 
         // Admin Multi-Vendor Management (Module 11)
         Route::get('/vendor/stores', [AdminVendorController::class, 'stores']);
+        Route::get('/vendor/stats', [AdminVendorController::class, 'stats']);
         Route::patch('/vendor/stores/{id}/kyc', [AdminVendorController::class, 'verifyKYC']);
         Route::post('/vendor/stores/{id}/approve', [AdminVendorController::class, 'approveStore']);
+        Route::post('/vendor/stores/{id}/reject', [AdminVendorController::class, 'rejectStore']);
         Route::post('/vendor/stores/{id}/suspend', [AdminVendorController::class, 'suspendStore']);
+        Route::post('/vendor/stores/{id}/activate', [AdminVendorController::class, 'activateStore']);
         Route::get('/vendor/settlements', [AdminVendorController::class, 'settlements']);
         Route::patch('/vendor/settlements/{id}/process', [AdminVendorController::class, 'processSettlement']);
 

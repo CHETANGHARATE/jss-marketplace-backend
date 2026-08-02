@@ -30,7 +30,7 @@ class UserSeeder extends Seeder
                 'phone_verified_at' => now(),
             ]
         );
-        $admin->assignRole(UserRole::ADMIN->value);
+        $admin->assignRoleSafely(UserRole::ADMIN->value);
 
         // 2. Retail Customer Account
         $customer = User::firstOrCreate(
@@ -45,7 +45,7 @@ class UserSeeder extends Seeder
                 'phone_verified_at' => now(),
             ]
         );
-        $customer->assignRole(UserRole::CUSTOMER->value);
+        $customer->assignRoleSafely(UserRole::CUSTOMER->value);
 
         // 3. Seed 16 Realistic Marketplace Vendors & Stores
         $vendors = [
@@ -80,7 +80,7 @@ class UserSeeder extends Seeder
                     'phone_verified_at' => now(),
                 ]
             );
-            $user->assignRole(UserRole::SELLER->value);
+            $user->assignRoleSafely(UserRole::SELLER->value);
 
             VendorStore::updateOrCreate(
                 ['user_id' => $user->id],
@@ -93,7 +93,7 @@ class UserSeeder extends Seeder
                     'state' => $v['state'],
                     'address' => 'Industrial Area Phase 1, ' . $v['city'],
                     'pincode' => '400001',
-                    'kyc_status' => 'approved',
+                    'kyc_status' => 'verified',
                     'status' => 'active',
                     'commission_rate' => 5.00,
                     'description' => 'Verified manufacturer and authorized seller of authentic ' . $v['name'] . ' products.',

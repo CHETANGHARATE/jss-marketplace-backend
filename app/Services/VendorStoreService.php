@@ -22,10 +22,8 @@ class VendorStoreService
         }
 
         return DB::transaction(function () use ($user, $data) {
-            // Assign seller role
-            if (!$user->hasRole(UserRole::SELLER->value)) {
-                $user->assignRole(UserRole::SELLER->value);
-            }
+            // Assign seller role safely across sanctum, web, and api guards
+            $user->assignRoleSafely(UserRole::SELLER->value);
 
             $slug = Str::slug($data['store_name']) . '-' . Str::random(4);
 
