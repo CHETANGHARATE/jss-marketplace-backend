@@ -88,9 +88,14 @@ class ProductController extends Controller
      */
     public function show(string $slug): JsonResponse
     {
-        $product = Product::where('slug', $slug)
-            ->where('is_active', true)
+        $product = Product::where('is_active', true)
             ->where('status', 'approved')
+            ->where(function ($q) use ($slug) {
+                $q->where('slug', $slug);
+                if (is_numeric($slug)) {
+                    $q->orWhere('id', (int) $slug);
+                }
+            })
             ->with([
                 'category',
                 'subcategory',
