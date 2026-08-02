@@ -69,6 +69,10 @@ class VendorStoreService
                 'status' => $storeStatus,
             ]);
 
+            if (($kycStatus === 'verified' || $storeStatus === 'active') && $store->user) {
+                $store->user->assignRoleSafely(UserRole::SELLER->value);
+            }
+
             return $store->fresh();
         });
     }

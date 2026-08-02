@@ -283,8 +283,15 @@ Route::prefix('v1')->group(function () {
             Route::get('/store', [VendorStoreController::class, 'currentStore']);
             Route::get('/dashboard', [VendorStoreController::class, 'dashboard']);
             Route::get('/products', [VendorStoreController::class, 'products']);
+            Route::post('/products', [VendorStoreController::class, 'storeProduct']);
+            Route::put('/products/{id}', [VendorStoreController::class, 'updateProduct']);
+            Route::delete('/products/{id}', [VendorStoreController::class, 'destroyProduct']);
+            Route::get('/inventory', [VendorStoreController::class, 'inventory']);
+            Route::post('/inventory/update', [VendorStoreController::class, 'updateInventory']);
             Route::get('/orders', [VendorStoreController::class, 'orders']);
+            Route::put('/orders/{id}/status', [VendorStoreController::class, 'updateOrderStatus']);
             Route::get('/wallet', [VendorStoreController::class, 'wallet']);
+            Route::get('/analytics', [VendorStoreController::class, 'analytics']);
             Route::post('/settlements/request', [VendorStoreController::class, 'requestSettlement']);
         });
     });

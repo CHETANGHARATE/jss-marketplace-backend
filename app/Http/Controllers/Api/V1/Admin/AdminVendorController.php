@@ -220,6 +220,10 @@ class AdminVendorController extends Controller
             'kyc_status' => 'verified',
         ]);
 
+        if ($store->user) {
+            $store->user->assignRoleSafely(\App\Enums\UserRole::SELLER->value);
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Vendor store has been activated.',

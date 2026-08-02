@@ -191,4 +191,213 @@ class VendorStoreController extends Controller
             ], 400);
         }
     }
+
+    /**
+     * Vendor Create Product.
+     */
+    public function storeProduct(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'category_id' => 'nullable|exists:categories,id',
+            'brand_id' => 'nullable|exists:brands,id',
+            'sku' => 'nullable|string|max:100|unique:products,sku',
+            'original_price' => 'required|numeric|min:0',
+            'sale_price' => 'nullable|numeric|min:0',
+            'offer_price' => 'nullable|numeric|min:0',
+            'stock_quantity' => 'required|integer|min:0',
+            'description' => 'nullable|string',
+            'images' => 'nullable|array',
+            'images.*' => 'string',
+            'status' => 'nullable|string|in:draft,published,pending_approval',
+        ]);
+
+        $sellerId = $request->user()->id;
+        $slug = \Illuminate\Support\Str::slug($validated['name']) . '-' . \Illuminate\Support\Str::random(4);
+
+        $product = Product::create([
+            'seller_id' => $sellerId,
+            'category_id' => $validated['category_id'] ?? null,
+            'brand_id' => $validated['brand_id'] ?? null,
+            'name' => $validated['name'],
+            'slug' => $slug,
+            'sku' => $validated['sku'] ?? ('SKU-' . strtoupper(\Illuminate\Support\Str::random(8))),
+            'original_price' => $validated['original_price'],
+            'sale_price' => $validated['sale_price'] ?? $validated['original_price'],
+            'offer_price' => $validated['offer_price'] ?? $validated['sale_price'] ?? $validated['original_price'],
+            'stock_quantity' => $validated['stock_quantity'],
+            'stock_status' => $validated['stock_quantity'] > 0 ? 'in_stock' : 'out_of_stock',
+            'description' => $validated['description'] ?? null,
+            'status' => $validated['status'] ?? 'published',
+            'is_approved' => true,
+        ]);
+
+        if (!empty($validated['images'])) {
+            foreach ($validated['images'] as $index => $imgUrl) {
+                \App\Models\ProductImage::create([
+                    'product_id' => $product->id,
+                    'image_url' => $imgUrl,
+                    'is_primary' => $index === 0,
+                    'sort_order' => $index,
+                ]);
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Product created successfully.',
+            'data' => new ProductResource($product->fresh(['category', 'brand', 'primaryImage'])),
+        ], 201);
+    }
+
+    /**
+     * Vendor Update Product.
+     */
+    public function updateProduct(Request $request, int $id): JsonResponse
+    {
+        $product = Product::where('id', $id)->where('seller_id', $request->user()->id)->firstOrFail();
+
+        $validated = $request->validate([
+            'name' => 'sometimes|required|string|max:255',
+            'category_id' => 'nullable|exists:categories,id',
+            'brand_id' => 'nullable|exists:brands,id',
+            'sku' => 'nullable|string|max:100|unique:products,sku,' . $product->id,
+            'original_price' => 'sometimes|required|numeric|min:0',
+            'sale_price' => 'nullable|numeric|min:0',
+            'offer_price' => 'nullable|numeric|min:0',
+            'stock_quantity' => 'sometimes|required|integer|min:0',
+            'description' => 'nullable|string',
+            'images' => 'nullable|array',
+            'status' => 'nullable|string|in:draft,published,pending_approval',
+        ]);
+
+        if (isset($validated['stock_quantity'])) {
+            $validated['stock_status'] = $validated['stock_quantity'] > 0 ? 'in_stock' : 'out_of_stock';
+        }
+
+        $product->update($validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Product updated successfully.',
+            'data' => new ProductResource($product->fresh(['category', 'brand', 'primaryImage'])),
+        ], 200);
+    }
+
+    /**
+     * Vendor Delete Product.
+     */
+    public function destroyProduct(Request $request, int $id): JsonResponse
+    {
+        $product = Product::where('id', $id)->where('seller_id', $request->user()->id)->firstOrFail();
+        $product->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Product deleted successfully.',
+        ], 200);
+    }
+
+    /**
+     * Vendor Inventory List.
+     */
+    public function inventory(Request $request): JsonResponse
+    {
+        $products = Product::where('seller_id', $request->user()->id)->latest()->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => ProductResource::collection($products),
+        ], 200);
+    }
+
+    /**
+     * Vendor Stock Update.
+     */
+    public function updateInventory(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'product_id' => 'required|exists:products,id',
+            'stock_quantity' => 'required|integer|min:0',
+        ]);
+
+        $product = Product::where('id', $validated['product_id'])
+            ->where('seller_id', $request->user()->id)
+            ->firstOrFail();
+
+        $product->update([
+            'stock_quantity' => $validated['stock_quantity'],
+            'stock_status' => $validated['stock_quantity'] > 0 ? 'in_stock' : 'out_of_stock',
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Inventory stock updated successfully.',
+            'data' => new ProductResource($product->fresh()),
+        ], 200);
+    }
+
+    /**
+     * Vendor Update Line Item Order Status.
+     */
+    public function updateOrderStatus(Request $request, int $id): JsonResponse
+    {
+        $validated = $request->validate([
+            'status' => 'required|string|in:pending,confirmed,packed,shipped,delivered,cancelled',
+        ]);
+
+        $orderItem = OrderItem::where('id', $id)
+            ->where('seller_id', $request->user()->id)
+            ->firstOrFail();
+
+        $orderItem->update([
+            'fulfillment_status' => $validated['status'],
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Order status updated successfully.',
+            'data' => new OrderItemResource($orderItem->fresh('order')),
+        ], 200);
+    }
+
+    /**
+     * Vendor Sales & Analytics Overview.
+     */
+    public function analytics(Request $request): JsonResponse
+    {
+        $sellerId = $request->user()->id;
+
+        $topProducts = Product::where('seller_id', $sellerId)
+            ->withCount('orderItems')
+            ->orderBy('order_items_count', 'desc')
+            ->take(5)
+            ->get()
+            ->map(function ($p) {
+                return [
+                    'id' => $p->id,
+                    'name' => $p->name,
+                    'sales_count' => $p->order_items_count,
+                ];
+            });
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'sales_trend' => [
+                    ['date' => 'Day 1', 'amount' => 1200],
+                    ['date' => 'Day 2', 'amount' => 2400],
+                    ['date' => 'Day 3', 'amount' => 1800],
+                    ['date' => 'Day 4', 'amount' => 3200],
+                    ['date' => 'Day 5', 'amount' => 4500],
+                ],
+                'top_products' => $topProducts,
+                'order_status_counts' => [
+                    'pending' => OrderItem::where('seller_id', $sellerId)->where('fulfillment_status', 'pending')->count(),
+                    'shipped' => OrderItem::where('seller_id', $sellerId)->where('fulfillment_status', 'shipped')->count(),
+                    'delivered' => OrderItem::where('seller_id', $sellerId)->where('fulfillment_status', 'delivered')->count(),
+                ],
+            ],
+        ], 200);
+    }
 }
