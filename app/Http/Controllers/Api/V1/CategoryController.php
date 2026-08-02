@@ -34,7 +34,8 @@ class CategoryController extends Controller
                 $query->where('is_featured', true);
             }
 
-            return $query->get();
+            $allCats = $query->get();
+            return $allCats->unique('slug')->values();
         });
 
         return response()->json([
