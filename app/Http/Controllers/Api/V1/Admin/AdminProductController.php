@@ -8,6 +8,10 @@ use App\Models\Product;
 use App\Models\ProductVariant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 
 class AdminProductController extends Controller
@@ -81,101 +85,146 @@ class AdminProductController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'category_id' => 'nullable|exists:categories,id',
-            'subcategory_id' => 'nullable|exists:categories,id',
-            'child_category_id' => 'nullable|exists:categories,id',
-            'brand_id' => 'nullable|exists:brands,id',
-            'sku' => 'nullable|string|unique:products,sku',
-            'short_description' => 'nullable|string',
-            'description' => 'nullable|string',
-            'original_price' => 'required|numeric|min:0',
-            'offer_price' => 'nullable|numeric|min:0',
-            'cost_price' => 'nullable|numeric|min:0',
-            'gst_percent' => 'nullable|numeric|min:0',
-            'tax_inclusive' => 'nullable|boolean',
-            'stock_quantity' => 'required|integer|min:0',
-            'images' => 'nullable|array',
-            'attribute_values' => 'nullable|array',
-            'variants' => 'nullable|array',
-            'weight' => 'nullable|numeric',
-            'length' => 'nullable|numeric',
-            'width' => 'nullable|numeric',
-            'height' => 'nullable|numeric',
-            'dispatch_days' => 'nullable|integer',
-            'shipping_charge' => 'nullable|numeric',
-            'is_free_shipping' => 'nullable|boolean',
-            'is_cod_available' => 'nullable|boolean',
-            'return_policy' => 'nullable|string',
-            'replacement_policy' => 'nullable|string',
-            'warranty_summary' => 'nullable|string',
-            'guarantee_summary' => 'nullable|string',
-            'cancellation_policy' => 'nullable|string',
-            'meta_title' => 'nullable|string',
-            'meta_description' => 'nullable|string',
-            'meta_keywords' => 'nullable|string',
-            'canonical_url' => 'nullable|string',
-            'og_image' => 'nullable|string',
-            'highlights' => 'nullable|array',
-            'search_keywords' => 'nullable|string',
-            'status' => 'nullable|string',
-        ]);
+        try {
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'category_id' => 'nullable|exists:categories,id',
+                'subcategory_id' => 'nullable|exists:categories,id',
+                'child_category_id' => 'nullable|exists:categories,id',
+                'brand_id' => 'nullable|exists:brands,id',
+                'sku' => 'nullable|string|unique:products,sku',
+                'short_description' => 'nullable|string',
+                'description' => 'nullable|string',
+                'original_price' => 'required|numeric|min:0',
+                'offer_price' => 'nullable|numeric|min:0',
+                'cost_price' => 'nullable|numeric|min:0',
+                'gst_percent' => 'nullable|numeric|min:0',
+                'tax_inclusive' => 'nullable|boolean',
+                'stock_quantity' => 'required|integer|min:0',
+                'images' => 'nullable|array',
+                'images.*' => 'nullable|string',
+                'attribute_values' => 'nullable|array',
+                'specifications' => 'nullable|array',
+                'custom_specifications' => 'nullable|array',
+                'variants' => 'nullable|array',
+                'weight' => 'nullable|numeric',
+                'length' => 'nullable|numeric',
+                'width' => 'nullable|numeric',
+                'height' => 'nullable|numeric',
+                'dispatch_days' => 'nullable|integer',
+                'shipping_charge' => 'nullable|numeric',
+                'is_free_shipping' => 'nullable|boolean',
+                'is_cod_available' => 'nullable|boolean',
+                'return_policy' => 'nullable|string',
+                'replacement_policy' => 'nullable|string',
+                'warranty_summary' => 'nullable|string',
+                'guarantee_summary' => 'nullable|string',
+                'cancellation_policy' => 'nullable|string',
+                'meta_title' => 'nullable|string',
+                'meta_description' => 'nullable|string',
+                'meta_keywords' => 'nullable|string',
+                'canonical_url' => 'nullable|string',
+                'og_image' => 'nullable|string',
+                'highlights' => 'nullable|array',
+                'search_keywords' => 'nullable|string',
+                'status' => 'nullable|string',
+            ]);
 
-        $status = $request->get('status', 'approved');
-        $isActive = ($status === 'approved');
+            $status = $request->get('status', 'approved');
+            $isActive = ($status === 'approved');
 
-        $sku = $validated['sku'] ?? 'SKU-ADM-' . strtoupper(Str::random(8));
+            $sku = $validated['sku'] ?? 'SKU-ADM-' . strtoupper(Str::random(8));
 
-        $productData = array_merge($validated, [
-            'seller_id' => $request->user()->id,
-            'sku' => $sku,
-            'slug' => Str::slug($validated['name']) . '-' . strtolower(Str::random(5)),
-            'status' => $status,
-            'is_active' => $isActive,
-        ]);
+            $productData = array_merge($validated, [
+                'seller_id' => $request->user()->id,
+                'sku' => $sku,
+                'slug' => Str::slug($validated['name']) . '-' . strtolower(Str::random(5)),
+                'status' => $status,
+                'is_active' => $isActive,
+            ]);
 
-        unset($productData['images'], $productData['attribute_values'], $productData['variants']);
+            unset($productData['images'], $productData['attribute_values'], $productData['specifications'], $productData['custom_specifications'], $productData['variants']);
 
-        $product = Product::create($productData);
+            $product = DB::transaction(function () use ($productData, $validated, $sku) {
+                $product = Product::create($productData);
 
-        // Attach images
-        if (!empty($validated['images'])) {
-            foreach ($validated['images'] as $index => $url) {
-                $product->images()->create([
-                    'image_path' => $url,
-                    'is_primary' => ($index === 0),
-                    'sort_order' => $index,
-                ]);
-            }
+                // Attach images
+                if (!empty($validated['images'])) {
+                    foreach (array_slice(array_filter($validated['images']), 0, 10) as $index => $url) {
+                        \App\Models\ProductImage::create([
+                            'product_id' => $product->id,
+                            'image_url' => $url,
+                            'is_primary' => ($index === 0),
+                            'sort_order' => $index,
+                        ]);
+                    }
+                }
+
+                // Attach attribute values
+                if (!empty($validated['attribute_values'])) {
+                    $product->attributeValues()->sync($validated['attribute_values']);
+                }
+
+                // Attach specifications
+                $specs = $validated['specifications'] ?? $validated['custom_specifications'] ?? [];
+                if (!empty($specs)) {
+                    foreach ($specs as $sortIdx => $spec) {
+                        $key = $spec['key'] ?? $spec['name'] ?? $spec['spec_key'] ?? null;
+                        $value = $spec['value'] ?? $spec['spec_value'] ?? null;
+                        if ($key && $value) {
+                            \App\Models\ProductSpecification::create([
+                                'product_id' => $product->id,
+                                'spec_key' => $key,
+                                'spec_value' => $value,
+                                'sort_order' => $sortIdx,
+                            ]);
+                        }
+                    }
+                }
+
+                // Attach variants
+                if (!empty($validated['variants'])) {
+                    foreach ($validated['variants'] as $v) {
+                        ProductVariant::create([
+                            'product_id' => $product->id,
+                            'sku' => $v['sku'] ?? ($sku . '-' . strtoupper(Str::random(4))),
+                            'barcode' => $v['barcode'] ?? null,
+                            'title' => $v['title'] ?? 'Default Variant',
+                            'price' => $v['price'] ?? $product->original_price,
+                            'offer_price' => $v['offer_price'] ?? $product->offer_price,
+                            'stock_quantity' => $v['stock_quantity'] ?? 0,
+                            'image' => $v['image'] ?? null,
+                        ]);
+                    }
+                }
+
+                return $product;
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Product created successfully by Admin.',
+                'data' => new ProductResource($product->load(['category', 'brand', 'seller', 'images', 'variants', 'attributeValues', 'specifications'])),
+            ], 201);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation error creating admin product.',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Throwable $e) {
+            Log::error('Admin Product Create Exception: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create admin product: ' . $e->getMessage(),
+                'errors' => [
+                    'server' => [$e->getMessage()],
+                ],
+            ], 500);
         }
-
-        // Attach attribute values
-        if (!empty($validated['attribute_values'])) {
-            $product->attributeValues()->sync($validated['attribute_values']);
-        }
-
-        // Attach variants
-        if (!empty($validated['variants'])) {
-            foreach ($validated['variants'] as $v) {
-                ProductVariant::create([
-                    'product_id' => $product->id,
-                    'sku' => $v['sku'] ?? ($sku . '-' . strtoupper(Str::random(4))),
-                    'barcode' => $v['barcode'] ?? null,
-                    'title' => $v['title'] ?? 'Default Variant',
-                    'price' => $v['price'] ?? $product->original_price,
-                    'offer_price' => $v['offer_price'] ?? $product->offer_price,
-                    'stock_quantity' => $v['stock_quantity'] ?? 0,
-                    'image' => $v['image'] ?? null,
-                ]);
-            }
-        }
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Product created successfully by Admin.',
-            'data' => new ProductResource($product->load(['category', 'brand', 'seller', 'images', 'variants', 'attributeValues'])),
-        ], 201);
     }
 
     /**
