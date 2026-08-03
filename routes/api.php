@@ -164,6 +164,7 @@ Route::prefix('v1')->group(function () {
     // Public Catalog Foundation Endpoints (Module 2)
     Route::get('/categories', [CategoryController::class, 'index']);
     Route::get('/categories/{slug}', [CategoryController::class, 'show']);
+    Route::get('/categories/{id}/attributes', [CategoryController::class, 'getCategoryAttributes']);
     Route::get('/categories/{id}/subcategories', [SubcategoryController::class, 'index']);
     Route::get('/subcategories', [SubcategoryController::class, 'index']);
     Route::get('/subcategories/{slug}', [SubcategoryController::class, 'show']);
@@ -285,6 +286,8 @@ Route::prefix('v1')->group(function () {
             Route::get('/products', [VendorStoreController::class, 'products']);
             Route::post('/products', [VendorStoreController::class, 'storeProduct']);
             Route::put('/products/{id}', [VendorStoreController::class, 'updateProduct']);
+            Route::post('/products/{id}/submit', [VendorStoreController::class, 'submitProductForReview']);
+            Route::post('/products/{id}/duplicate', [VendorStoreController::class, 'duplicateProduct']);
             Route::delete('/products/{id}', [VendorStoreController::class, 'destroyProduct']);
             Route::get('/inventory', [VendorStoreController::class, 'inventory']);
             Route::post('/inventory/update', [VendorStoreController::class, 'updateInventory']);
@@ -300,6 +303,13 @@ Route::prefix('v1')->group(function () {
     Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(function () {
         // System Settings Admin
         Route::put('/settings', [SettingController::class, 'update']);
+
+        // Admin Product Moderation & Attribute Templates
+        Route::get('/products/pending', [AdminProductController::class, 'pending']);
+        Route::post('/products/{id}/approve', [AdminProductController::class, 'approve']);
+        Route::post('/products/{id}/reject', [AdminProductController::class, 'reject']);
+        Route::post('/products/{id}/request-changes', [AdminProductController::class, 'requestChanges']);
+        Route::apiResource('/attribute-templates', AttributeTemplateController::class);
 
         // Category Management
         Route::post('/categories', [CategoryController::class, 'store']);

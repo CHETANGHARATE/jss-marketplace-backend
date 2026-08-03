@@ -163,4 +163,47 @@ class CategoryController extends Controller
             'message' => 'Category deleted successfully.',
         ], 200);
     }
+
+    /**
+     * Get dynamic attribute templates and attributes configured for a specific category.
+     */
+    public function getCategoryAttributes(int $id): JsonResponse
+    {
+        $category = Category::with([
+            'attributes.values',
+            'attributeTemplates.attributes.values',
+            'parent.attributes.values',
+            'parent.attributeTemplates.attributes.values',
+        ])->find($id);
+
+        if (!$category) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Category not found.',
+            ], 404);
+        }
+
+        // Aggregate attributes from category, category templates, and parent category
+        $directAttributes = $category->attributes;
+        $templateAttributes = $category->attributeTemplates->flatMap->attributes;
+        $parentAttributes = $category->parent ? $category->parent->attributes : collect();
+        $parentTemplateAttributes = $category->parent ? $category->parent->attributeTemplates->flatMap->attributes : collect();
+
+        $allAttributes = $directAttributes
+            ->concat($templateAttributes)
+            ->concat($parentAttributes)
+            ->concat($parentTemplateAttributes)
+            ->unique('id')
+            ->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'category_id' => $category->id,
+                'category_name' => $category->name,
+                'attributes' => $allAttributes,
+                'templates' => $category->attributeTemplates,
+            ],
+        ], 200);
+    }
 }

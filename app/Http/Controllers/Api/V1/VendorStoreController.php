@@ -193,60 +193,145 @@ class VendorStoreController extends Controller
     }
 
     /**
-     * Vendor Create Product.
+     * Vendor Create Product (Supports Modules 1-13).
      */
     public function storeProduct(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'category_id' => 'nullable|exists:categories,id',
+            'subcategory_id' => 'nullable|exists:categories,id',
+            'child_category_id' => 'nullable|exists:categories,id',
             'brand_id' => 'nullable|exists:brands,id',
             'sku' => 'nullable|string|max:100|unique:products,sku',
             'original_price' => 'required|numeric|min:0',
-            'sale_price' => 'nullable|numeric|min:0',
             'offer_price' => 'nullable|numeric|min:0',
+            'cost_price' => 'nullable|numeric|min:0',
+            'gst_percent' => 'nullable|numeric|min:0',
+            'tax_inclusive' => 'nullable|boolean',
             'stock_quantity' => 'required|integer|min:0',
+            'short_description' => 'nullable|string',
             'description' => 'nullable|string',
             'images' => 'nullable|array',
             'images.*' => 'string',
-            'status' => 'nullable|string|in:draft,published,pending_approval',
+            'attribute_values' => 'nullable|array',
+            'variants' => 'nullable|array',
+            'weight' => 'nullable|numeric|min:0',
+            'length' => 'nullable|numeric|min:0',
+            'width' => 'nullable|numeric|min:0',
+            'height' => 'nullable|numeric|min:0',
+            'dispatch_days' => 'nullable|integer|min:1',
+            'shipping_charge' => 'nullable|numeric|min:0',
+            'is_free_shipping' => 'nullable|boolean',
+            'is_cod_available' => 'nullable|boolean',
+            'return_policy' => 'nullable|string',
+            'replacement_policy' => 'nullable|string',
+            'warranty_summary' => 'nullable|string',
+            'guarantee_summary' => 'nullable|string',
+            'cancellation_policy' => 'nullable|string',
+            'meta_title' => 'nullable|string|max:255',
+            'meta_description' => 'nullable|string|max:500',
+            'meta_keywords' => 'nullable|string|max:500',
+            'canonical_url' => 'nullable|string|max:255',
+            'og_image' => 'nullable|string|max:255',
+            'highlights' => 'nullable|array',
+            'search_keywords' => 'nullable|string',
+            'status' => 'nullable|string|in:draft,pending_approval,pending_review',
         ]);
 
         $sellerId = $request->user()->id;
-        $slug = \Illuminate\Support\Str::slug($validated['name']) . '-' . \Illuminate\Support\Str::random(4);
+        $slug = \Illuminate\Support\Str::slug($validated['name']) . '-' . \Illuminate\Support\Str::random(6);
 
-        $product = Product::create([
-            'seller_id' => $sellerId,
-            'category_id' => $validated['category_id'] ?? null,
-            'brand_id' => $validated['brand_id'] ?? null,
-            'name' => $validated['name'],
-            'slug' => $slug,
-            'sku' => $validated['sku'] ?? ('SKU-' . strtoupper(\Illuminate\Support\Str::random(8))),
-            'original_price' => $validated['original_price'],
-            'sale_price' => $validated['sale_price'] ?? $validated['original_price'],
-            'offer_price' => $validated['offer_price'] ?? $validated['sale_price'] ?? $validated['original_price'],
-            'stock_quantity' => $validated['stock_quantity'],
-            'stock_status' => $validated['stock_quantity'] > 0 ? 'in_stock' : 'out_of_stock',
-            'description' => $validated['description'] ?? null,
-            'status' => $validated['status'] ?? 'published',
-            'is_approved' => true,
-        ]);
+        // VENDOR PRODUCTS NEVER BECOME LIVE AUTOMATICALLY! Default to draft or pending_approval
+        $initialStatus = in_array($validated['status'] ?? '', ['pending_approval', 'pending_review']) ? 'pending_approval' : 'draft';
 
-        if (!empty($validated['images'])) {
-            foreach ($validated['images'] as $index => $imgUrl) {
-                \App\Models\ProductImage::create([
-                    'product_id' => $product->id,
-                    'image_url' => $imgUrl,
-                    'is_primary' => $index === 0,
-                    'sort_order' => $index,
-                ]);
+        $product = DB::transaction(function () use ($validated, $sellerId, $slug, $initialStatus) {
+            $product = Product::create([
+                'seller_id' => $sellerId,
+                'category_id' => $validated['category_id'] ?? null,
+                'subcategory_id' => $validated['subcategory_id'] ?? null,
+                'child_category_id' => $validated['child_category_id'] ?? null,
+                'brand_id' => $validated['brand_id'] ?? null,
+                'name' => $validated['name'],
+                'slug' => $slug,
+                'sku' => $validated['sku'] ?? ('SKU-' . strtoupper(\Illuminate\Support\Str::random(8))),
+                'short_description' => $validated['short_description'] ?? null,
+                'description' => $validated['description'] ?? null,
+                'original_price' => $validated['original_price'],
+                'offer_price' => $validated['offer_price'] ?? $validated['original_price'],
+                'cost_price' => $validated['cost_price'] ?? null,
+                'gst_percent' => $validated['gst_percent'] ?? 0,
+                'tax_inclusive' => $validated['tax_inclusive'] ?? true,
+                'stock_quantity' => $validated['stock_quantity'],
+                'stock_status' => $validated['stock_quantity'] > 0 ? 'in_stock' : 'out_of_stock',
+                'weight' => $validated['weight'] ?? null,
+                'length' => $validated['length'] ?? null,
+                'width' => $validated['width'] ?? null,
+                'height' => $validated['height'] ?? null,
+                'dispatch_days' => $validated['dispatch_days'] ?? 1,
+                'shipping_charge' => $validated['shipping_charge'] ?? 0,
+                'is_free_shipping' => $validated['is_free_shipping'] ?? false,
+                'is_cod_available' => $validated['is_cod_available'] ?? true,
+                'return_policy' => $validated['return_policy'] ?? null,
+                'replacement_policy' => $validated['replacement_policy'] ?? null,
+                'warranty_summary' => $validated['warranty_summary'] ?? null,
+                'guarantee_summary' => $validated['guarantee_summary'] ?? null,
+                'cancellation_policy' => $validated['cancellation_policy'] ?? null,
+                'meta_title' => $validated['meta_title'] ?? null,
+                'meta_description' => $validated['meta_description'] ?? null,
+                'meta_keywords' => $validated['meta_keywords'] ?? null,
+                'canonical_url' => $validated['canonical_url'] ?? null,
+                'og_image' => $validated['og_image'] ?? null,
+                'highlights' => $validated['highlights'] ?? [],
+                'search_keywords' => $validated['search_keywords'] ?? null,
+                'status' => $initialStatus,
+                'is_active' => false,
+            ]);
+
+            // Save Gallery Images (Min 1, Max 10)
+            if (!empty($validated['images'])) {
+                foreach (array_slice($validated['images'], 0, 10) as $index => $imgUrl) {
+                    \App\Models\ProductImage::create([
+                        'product_id' => $product->id,
+                        'image_url' => $imgUrl,
+                        'is_primary' => $index === 0,
+                        'sort_order' => $index,
+                    ]);
+                }
             }
-        }
+
+            // Save Attribute Values Mapping
+            if (!empty($validated['attribute_values'])) {
+                $product->attributeValues()->sync($validated['attribute_values']);
+            }
+
+            // Save Product Variants
+            if (!empty($validated['variants'])) {
+                foreach ($validated['variants'] as $index => $varData) {
+                    \App\Models\ProductVariant::create([
+                        'product_id' => $product->id,
+                        'sku' => $varData['sku'] ?? ($product->sku . '-V' . ($index + 1)),
+                        'barcode' => $varData['barcode'] ?? null,
+                        'title' => $varData['title'] ?? 'Variant ' . ($index + 1),
+                        'price' => $varData['price'] ?? $product->original_price,
+                        'offer_price' => $varData['offer_price'] ?? $product->offer_price,
+                        'stock_quantity' => $varData['stock_quantity'] ?? 0,
+                        'image' => $varData['image'] ?? null,
+                        'attributes' => $varData['attributes'] ?? [],
+                        'is_default' => $index === 0,
+                    ]);
+                }
+            }
+
+            return $product;
+        });
 
         return response()->json([
             'success' => true,
-            'message' => 'Product created successfully.',
-            'data' => new ProductResource($product->fresh(['category', 'brand', 'primaryImage'])),
+            'message' => $initialStatus === 'pending_approval'
+                ? 'Product submitted for admin review.'
+                : 'Product draft saved successfully.',
+            'data' => new ProductResource($product->fresh(['category', 'brand', 'primaryImage', 'images', 'variants'])),
         ], 201);
     }
 
@@ -260,28 +345,100 @@ class VendorStoreController extends Controller
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
             'category_id' => 'nullable|exists:categories,id',
+            'subcategory_id' => 'nullable|exists:categories,id',
+            'child_category_id' => 'nullable|exists:categories,id',
             'brand_id' => 'nullable|exists:brands,id',
             'sku' => 'nullable|string|max:100|unique:products,sku,' . $product->id,
             'original_price' => 'sometimes|required|numeric|min:0',
-            'sale_price' => 'nullable|numeric|min:0',
             'offer_price' => 'nullable|numeric|min:0',
+            'cost_price' => 'nullable|numeric|min:0',
+            'gst_percent' => 'nullable|numeric|min:0',
+            'tax_inclusive' => 'nullable|boolean',
             'stock_quantity' => 'sometimes|required|integer|min:0',
+            'short_description' => 'nullable|string',
             'description' => 'nullable|string',
             'images' => 'nullable|array',
-            'status' => 'nullable|string|in:draft,published,pending_approval',
+            'attribute_values' => 'nullable|array',
+            'variants' => 'nullable|array',
+            'status' => 'nullable|string|in:draft,pending_approval',
         ]);
 
-        if (isset($validated['stock_quantity'])) {
-            $validated['stock_status'] = $validated['stock_quantity'] > 0 ? 'in_stock' : 'out_of_stock';
-        }
+        DB::transaction(function () use ($product, $validated) {
+            if (isset($validated['stock_quantity'])) {
+                $validated['stock_status'] = $validated['stock_quantity'] > 0 ? 'in_stock' : 'out_of_stock';
+            }
 
-        $product->update($validated);
+            // If modifying an approved product, reset status to pending_approval or draft
+            if ($product->status === 'approved') {
+                $validated['status'] = $validated['status'] ?? 'pending_approval';
+                $validated['is_active'] = false;
+            }
+
+            $product->update($validated);
+
+            if (isset($validated['images'])) {
+                \App\Models\ProductImage::where('product_id', $product->id)->delete();
+                foreach (array_slice($validated['images'], 0, 10) as $index => $imgUrl) {
+                    \App\Models\ProductImage::create([
+                        'product_id' => $product->id,
+                        'image_url' => $imgUrl,
+                        'is_primary' => $index === 0,
+                        'sort_order' => $index,
+                    ]);
+                }
+            }
+
+            if (isset($validated['attribute_values'])) {
+                $product->attributeValues()->sync($validated['attribute_values']);
+            }
+        });
 
         return response()->json([
             'success' => true,
             'message' => 'Product updated successfully.',
-            'data' => new ProductResource($product->fresh(['category', 'brand', 'primaryImage'])),
+            'data' => new ProductResource($product->fresh(['category', 'brand', 'primaryImage', 'images', 'variants'])),
         ], 200);
+    }
+
+    /**
+     * Submit product draft for admin approval.
+     */
+    public function submitProductForReview(Request $request, int $id): JsonResponse
+    {
+        $product = Product::where('id', $id)->where('seller_id', $request->user()->id)->firstOrFail();
+
+        $product->update([
+            'status' => 'pending_approval',
+            'is_active' => false,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Product submitted for admin approval.',
+            'data' => new ProductResource($product->fresh()),
+        ], 200);
+    }
+
+    /**
+     * Duplicate an existing product as a draft.
+     */
+    public function duplicateProduct(Request $request, int $id): JsonResponse
+    {
+        $original = Product::where('id', $id)->where('seller_id', $request->user()->id)->firstOrFail();
+
+        $duplicate = $original->replicate(['slug', 'sku']);
+        $duplicate->name = $original->name . ' (Copy)';
+        $duplicate->slug = \Illuminate\Support\Str::slug($duplicate->name) . '-' . \Illuminate\Support\Str::random(6);
+        $duplicate->sku = 'SKU-' . strtoupper(\Illuminate\Support\Str::random(8));
+        $duplicate->status = 'draft';
+        $duplicate->is_active = false;
+        $duplicate->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Product duplicated as draft.',
+            'data' => new ProductResource($duplicate),
+        ], 201);
     }
 
     /**

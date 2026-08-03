@@ -19,6 +19,7 @@ class Product extends Model
         'seller_id',
         'category_id',
         'subcategory_id',
+        'child_category_id',
         'brand_id',
         'sku',
         'name',
@@ -30,8 +31,31 @@ class Product extends Model
         'offer_price',
         'discount_percent',
         'cost_price',
+        'gst_percent',
+        'tax_inclusive',
         'stock_status',
         'stock_quantity',
+        'weight',
+        'length',
+        'width',
+        'height',
+        'dispatch_days',
+        'shipping_charge',
+        'is_free_shipping',
+        'is_cod_available',
+        'return_policy',
+        'replacement_policy',
+        'warranty_summary',
+        'guarantee_summary',
+        'cancellation_policy',
+        'canonical_url',
+        'og_image',
+        'ai_description',
+        'ai_seo',
+        'ai_highlights',
+        'ai_keywords',
+        'highlights',
+        'search_keywords',
         'rating',
         'reviews_count',
         'is_featured',
@@ -50,11 +74,21 @@ class Product extends Model
             'name' => 'array',
             'short_description' => 'array',
             'description' => 'array',
+            'highlights' => 'array',
+            'ai_seo' => 'array',
+            'ai_highlights' => 'array',
+            'ai_keywords' => 'array',
             'original_price' => 'decimal:2',
             'offer_price' => 'decimal:2',
             'cost_price' => 'decimal:2',
+            'gst_percent' => 'decimal:2',
+            'tax_inclusive' => 'boolean',
             'discount_percent' => 'integer',
             'stock_quantity' => 'integer',
+            'dispatch_days' => 'integer',
+            'shipping_charge' => 'decimal:2',
+            'is_free_shipping' => 'boolean',
+            'is_cod_available' => 'boolean',
             'rating' => 'decimal:2',
             'reviews_count' => 'integer',
             'is_featured' => 'boolean',
@@ -94,6 +128,22 @@ class Product extends Model
     public function subcategory(): BelongsTo
     {
         return $this->belongsTo(Category::class, 'subcategory_id');
+    }
+
+    /**
+     * Child category relationship.
+     */
+    public function childCategory(): BelongsTo
+    {
+        return $this->belongsTo(Category::class, 'child_category_id');
+    }
+
+    /**
+     * Product Variants relationship.
+     */
+    public function variants(): HasMany
+    {
+        return $this->hasMany(ProductVariant::class, 'product_id');
     }
 
     /**

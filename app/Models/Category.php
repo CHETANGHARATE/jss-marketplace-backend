@@ -89,6 +89,14 @@ class Category extends Model
     }
 
     /**
+     * Associated Attribute Templates.
+     */
+    public function attributeTemplates(): HasMany
+    {
+        return $this->hasMany(AttributeTemplate::class, 'category_id');
+    }
+
+    /**
      * Associated Media items.
      */
     public function media(): MorphMany
