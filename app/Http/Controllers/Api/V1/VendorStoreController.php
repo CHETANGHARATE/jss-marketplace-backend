@@ -197,142 +197,182 @@ class VendorStoreController extends Controller
      */
     public function storeProduct(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'category_id' => 'nullable|exists:categories,id',
-            'subcategory_id' => 'nullable|exists:categories,id',
-            'child_category_id' => 'nullable|exists:categories,id',
-            'brand_id' => 'nullable|exists:brands,id',
-            'sku' => 'nullable|string|max:100|unique:products,sku',
-            'original_price' => 'required|numeric|min:0',
-            'offer_price' => 'nullable|numeric|min:0',
-            'cost_price' => 'nullable|numeric|min:0',
-            'gst_percent' => 'nullable|numeric|min:0',
-            'tax_inclusive' => 'nullable|boolean',
-            'stock_quantity' => 'required|integer|min:0',
-            'short_description' => 'nullable|string',
-            'description' => 'nullable|string',
-            'images' => 'nullable|array',
-            'images.*' => 'string',
-            'attribute_values' => 'nullable|array',
-            'variants' => 'nullable|array',
-            'weight' => 'nullable|numeric|min:0',
-            'length' => 'nullable|numeric|min:0',
-            'width' => 'nullable|numeric|min:0',
-            'height' => 'nullable|numeric|min:0',
-            'dispatch_days' => 'nullable|integer|min:1',
-            'shipping_charge' => 'nullable|numeric|min:0',
-            'is_free_shipping' => 'nullable|boolean',
-            'is_cod_available' => 'nullable|boolean',
-            'return_policy' => 'nullable|string',
-            'replacement_policy' => 'nullable|string',
-            'warranty_summary' => 'nullable|string',
-            'guarantee_summary' => 'nullable|string',
-            'cancellation_policy' => 'nullable|string',
-            'meta_title' => 'nullable|string|max:255',
-            'meta_description' => 'nullable|string|max:500',
-            'meta_keywords' => 'nullable|string|max:500',
-            'canonical_url' => 'nullable|string|max:255',
-            'og_image' => 'nullable|string|max:255',
-            'highlights' => 'nullable|array',
-            'search_keywords' => 'nullable|string',
-            'status' => 'nullable|string|in:draft,pending_approval,pending_review',
-        ]);
-
-        $sellerId = $request->user()->id;
-        $slug = \Illuminate\Support\Str::slug($validated['name']) . '-' . \Illuminate\Support\Str::random(6);
-
-        // VENDOR PRODUCTS NEVER BECOME LIVE AUTOMATICALLY! Default to draft or pending_approval
-        $initialStatus = in_array($validated['status'] ?? '', ['pending_approval', 'pending_review']) ? 'pending_approval' : 'draft';
-
-        $product = DB::transaction(function () use ($validated, $sellerId, $slug, $initialStatus) {
-            $product = Product::create([
-                'seller_id' => $sellerId,
-                'category_id' => $validated['category_id'] ?? null,
-                'subcategory_id' => $validated['subcategory_id'] ?? null,
-                'child_category_id' => $validated['child_category_id'] ?? null,
-                'brand_id' => $validated['brand_id'] ?? null,
-                'name' => $validated['name'],
-                'slug' => $slug,
-                'sku' => $validated['sku'] ?? ('SKU-' . strtoupper(\Illuminate\Support\Str::random(8))),
-                'short_description' => $validated['short_description'] ?? null,
-                'description' => $validated['description'] ?? null,
-                'original_price' => $validated['original_price'],
-                'offer_price' => $validated['offer_price'] ?? $validated['original_price'],
-                'cost_price' => $validated['cost_price'] ?? null,
-                'gst_percent' => $validated['gst_percent'] ?? 0,
-                'tax_inclusive' => $validated['tax_inclusive'] ?? true,
-                'stock_quantity' => $validated['stock_quantity'],
-                'stock_status' => $validated['stock_quantity'] > 0 ? 'in_stock' : 'out_of_stock',
-                'weight' => $validated['weight'] ?? null,
-                'length' => $validated['length'] ?? null,
-                'width' => $validated['width'] ?? null,
-                'height' => $validated['height'] ?? null,
-                'dispatch_days' => $validated['dispatch_days'] ?? 1,
-                'shipping_charge' => $validated['shipping_charge'] ?? 0,
-                'is_free_shipping' => $validated['is_free_shipping'] ?? false,
-                'is_cod_available' => $validated['is_cod_available'] ?? true,
-                'return_policy' => $validated['return_policy'] ?? null,
-                'replacement_policy' => $validated['replacement_policy'] ?? null,
-                'warranty_summary' => $validated['warranty_summary'] ?? null,
-                'guarantee_summary' => $validated['guarantee_summary'] ?? null,
-                'cancellation_policy' => $validated['cancellation_policy'] ?? null,
-                'meta_title' => $validated['meta_title'] ?? null,
-                'meta_description' => $validated['meta_description'] ?? null,
-                'meta_keywords' => $validated['meta_keywords'] ?? null,
-                'canonical_url' => $validated['canonical_url'] ?? null,
-                'og_image' => $validated['og_image'] ?? null,
-                'highlights' => $validated['highlights'] ?? [],
-                'search_keywords' => $validated['search_keywords'] ?? null,
-                'status' => $initialStatus,
-                'is_active' => false,
+        try {
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'category_id' => 'nullable|exists:categories,id',
+                'subcategory_id' => 'nullable|exists:categories,id',
+                'child_category_id' => 'nullable|exists:categories,id',
+                'brand_id' => 'nullable|exists:brands,id',
+                'sku' => 'nullable|string|max:100|unique:products,sku',
+                'original_price' => 'required|numeric|min:0',
+                'offer_price' => 'nullable|numeric|min:0',
+                'cost_price' => 'nullable|numeric|min:0',
+                'gst_percent' => 'nullable|numeric|min:0',
+                'tax_inclusive' => 'nullable|boolean',
+                'stock_quantity' => 'required|integer|min:0',
+                'short_description' => 'nullable|string',
+                'description' => 'nullable|string',
+                'images' => 'nullable|array',
+                'images.*' => 'nullable|string',
+                'attribute_values' => 'nullable|array',
+                'specifications' => 'nullable|array',
+                'custom_specifications' => 'nullable|array',
+                'variants' => 'nullable|array',
+                'weight' => 'nullable|numeric|min:0',
+                'length' => 'nullable|numeric|min:0',
+                'width' => 'nullable|numeric|min:0',
+                'height' => 'nullable|numeric|min:0',
+                'dispatch_days' => 'nullable|integer|min:1',
+                'shipping_charge' => 'nullable|numeric|min:0',
+                'is_free_shipping' => 'nullable|boolean',
+                'is_cod_available' => 'nullable|boolean',
+                'return_policy' => 'nullable|string',
+                'replacement_policy' => 'nullable|string',
+                'warranty_summary' => 'nullable|string',
+                'guarantee_summary' => 'nullable|string',
+                'cancellation_policy' => 'nullable|string',
+                'meta_title' => 'nullable|string|max:255',
+                'meta_description' => 'nullable|string|max:500',
+                'meta_keywords' => 'nullable|string|max:500',
+                'canonical_url' => 'nullable|string|max:255',
+                'og_image' => 'nullable|string|max:255',
+                'highlights' => 'nullable|array',
+                'search_keywords' => 'nullable|string',
+                'status' => 'nullable|string|in:draft,pending_approval,pending_review',
             ]);
 
-            // Save Gallery Images (Min 1, Max 10)
-            if (!empty($validated['images'])) {
-                foreach (array_slice($validated['images'], 0, 10) as $index => $imgUrl) {
-                    \App\Models\ProductImage::create([
-                        'product_id' => $product->id,
-                        'image_url' => $imgUrl,
-                        'is_primary' => $index === 0,
-                        'sort_order' => $index,
-                    ]);
+            $sellerId = $request->user()->id;
+            $slug = \Illuminate\Support\Str::slug($validated['name']) . '-' . \Illuminate\Support\Str::random(6);
+
+            // VENDOR PRODUCTS NEVER BECOME LIVE AUTOMATICALLY! Default to draft or pending_approval
+            $initialStatus = in_array($validated['status'] ?? '', ['pending_approval', 'pending_review']) ? 'pending_approval' : 'draft';
+
+            $product = DB::transaction(function () use ($validated, $sellerId, $slug, $initialStatus) {
+                $product = Product::create([
+                    'seller_id' => $sellerId,
+                    'category_id' => $validated['category_id'] ?? null,
+                    'subcategory_id' => $validated['subcategory_id'] ?? null,
+                    'child_category_id' => $validated['child_category_id'] ?? null,
+                    'brand_id' => $validated['brand_id'] ?? null,
+                    'name' => $validated['name'],
+                    'slug' => $slug,
+                    'sku' => $validated['sku'] ?? ('SKU-' . strtoupper(\Illuminate\Support\Str::random(8))),
+                    'short_description' => $validated['short_description'] ?? null,
+                    'description' => $validated['description'] ?? null,
+                    'original_price' => $validated['original_price'],
+                    'offer_price' => $validated['offer_price'] ?? $validated['original_price'],
+                    'cost_price' => $validated['cost_price'] ?? null,
+                    'gst_percent' => $validated['gst_percent'] ?? 0,
+                    'tax_inclusive' => $validated['tax_inclusive'] ?? true,
+                    'stock_quantity' => $validated['stock_quantity'],
+                    'stock_status' => $validated['stock_quantity'] > 0 ? 'in_stock' : 'out_of_stock',
+                    'weight' => $validated['weight'] ?? null,
+                    'length' => $validated['length'] ?? null,
+                    'width' => $validated['width'] ?? null,
+                    'height' => $validated['height'] ?? null,
+                    'dispatch_days' => $validated['dispatch_days'] ?? 1,
+                    'shipping_charge' => $validated['shipping_charge'] ?? 0,
+                    'is_free_shipping' => $validated['is_free_shipping'] ?? false,
+                    'is_cod_available' => $validated['is_cod_available'] ?? true,
+                    'return_policy' => $validated['return_policy'] ?? null,
+                    'replacement_policy' => $validated['replacement_policy'] ?? null,
+                    'warranty_summary' => $validated['warranty_summary'] ?? null,
+                    'guarantee_summary' => $validated['guarantee_summary'] ?? null,
+                    'cancellation_policy' => $validated['cancellation_policy'] ?? null,
+                    'meta_title' => $validated['meta_title'] ?? null,
+                    'meta_description' => $validated['meta_description'] ?? null,
+                    'meta_keywords' => $validated['meta_keywords'] ?? null,
+                    'canonical_url' => $validated['canonical_url'] ?? null,
+                    'og_image' => $validated['og_image'] ?? null,
+                    'highlights' => $validated['highlights'] ?? [],
+                    'search_keywords' => $validated['search_keywords'] ?? null,
+                    'status' => $initialStatus,
+                    'is_active' => false,
+                ]);
+
+                // Save Gallery Images (Min 1, Max 10)
+                if (!empty($validated['images'])) {
+                    foreach (array_slice(array_filter($validated['images']), 0, 10) as $index => $imgUrl) {
+                        \App\Models\ProductImage::create([
+                            'product_id' => $product->id,
+                            'image_url' => $imgUrl,
+                            'is_primary' => $index === 0,
+                            'sort_order' => $index,
+                        ]);
+                    }
                 }
-            }
 
-            // Save Attribute Values Mapping
-            if (!empty($validated['attribute_values'])) {
-                $product->attributeValues()->sync($validated['attribute_values']);
-            }
-
-            // Save Product Variants
-            if (!empty($validated['variants'])) {
-                foreach ($validated['variants'] as $index => $varData) {
-                    \App\Models\ProductVariant::create([
-                        'product_id' => $product->id,
-                        'sku' => $varData['sku'] ?? ($product->sku . '-V' . ($index + 1)),
-                        'barcode' => $varData['barcode'] ?? null,
-                        'title' => $varData['title'] ?? 'Variant ' . ($index + 1),
-                        'price' => $varData['price'] ?? $product->original_price,
-                        'offer_price' => $varData['offer_price'] ?? $product->offer_price,
-                        'stock_quantity' => $varData['stock_quantity'] ?? 0,
-                        'image' => $varData['image'] ?? null,
-                        'attributes' => $varData['attributes'] ?? [],
-                        'is_default' => $index === 0,
-                    ]);
+                // Save Attribute Values Mapping
+                if (!empty($validated['attribute_values'])) {
+                    $product->attributeValues()->sync($validated['attribute_values']);
                 }
-            }
 
-            return $product;
-        });
+                // Save Specifications
+                $specs = $validated['specifications'] ?? $validated['custom_specifications'] ?? [];
+                if (!empty($specs)) {
+                    foreach ($specs as $sortIdx => $spec) {
+                        $key = $spec['key'] ?? $spec['name'] ?? $spec['spec_key'] ?? null;
+                        $value = $spec['value'] ?? $spec['spec_value'] ?? null;
+                        if ($key && $value) {
+                            \App\Models\ProductSpecification::create([
+                                'product_id' => $product->id,
+                                'spec_key' => $key,
+                                'spec_value' => $value,
+                                'sort_order' => $sortIdx,
+                            ]);
+                        }
+                    }
+                }
 
-        return response()->json([
-            'success' => true,
-            'message' => $initialStatus === 'pending_approval'
-                ? 'Product submitted for admin review.'
-                : 'Product draft saved successfully.',
-            'data' => new ProductResource($product->fresh(['category', 'brand', 'primaryImage', 'images', 'variants'])),
-        ], 201);
+                // Save Product Variants
+                if (!empty($validated['variants'])) {
+                    foreach ($validated['variants'] as $index => $varData) {
+                        \App\Models\ProductVariant::create([
+                            'product_id' => $product->id,
+                            'sku' => $varData['sku'] ?? ($product->sku . '-V' . ($index + 1)),
+                            'barcode' => $varData['barcode'] ?? null,
+                            'title' => $varData['title'] ?? 'Variant ' . ($index + 1),
+                            'price' => $varData['price'] ?? $product->original_price,
+                            'offer_price' => $varData['offer_price'] ?? $product->offer_price,
+                            'stock_quantity' => $varData['stock_quantity'] ?? 0,
+                            'image' => $varData['image'] ?? null,
+                            'attributes' => $varData['attributes'] ?? [],
+                            'is_default' => $index === 0,
+                        ]);
+                    }
+                }
+
+                return $product;
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => $initialStatus === 'pending_approval'
+                    ? 'Product submitted for admin review.'
+                    : 'Product draft saved successfully.',
+                'data' => new ProductResource($product->fresh(['category', 'brand', 'primaryImage', 'images', 'variants', 'specifications'])),
+            ], 201);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation error during product creation.',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Vendor Product Store Exception: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'user_id' => $request->user()?->id,
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create product: ' . $e->getMessage(),
+                'errors' => [
+                    'server' => [$e->getMessage()],
+                ],
+            ], 500);
+        }
     }
 
     /**
