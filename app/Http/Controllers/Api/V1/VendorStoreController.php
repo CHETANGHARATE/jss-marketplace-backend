@@ -243,14 +243,14 @@ class VendorStoreController extends Controller
                 'og_image' => 'nullable|string|max:255',
                 'highlights' => 'nullable|array',
                 'search_keywords' => 'nullable|string',
-                'status' => 'nullable|string|in:draft,pending_approval,pending_review',
+                'status' => 'nullable|string|in:draft,pending_review',
             ]);
 
             $sellerId = $request->user()->id;
             $slug = \Illuminate\Support\Str::slug($validated['name']) . '-' . \Illuminate\Support\Str::random(6);
 
-            // VENDOR PRODUCTS NEVER BECOME LIVE AUTOMATICALLY! Default to draft or pending_approval
-            $initialStatus = in_array($validated['status'] ?? '', ['pending_approval', 'pending_review']) ? 'pending_approval' : 'draft';
+            // VENDOR PRODUCTS NEVER BECOME LIVE AUTOMATICALLY! Default to draft or pending_review
+            $initialStatus = in_array($validated['status'] ?? '', ['pending_review']) ? 'pending_review' : 'draft';
 
             $product = DB::transaction(function () use ($validated, $sellerId, $slug, $initialStatus) {
                 $product = Product::create([
@@ -353,7 +353,7 @@ class VendorStoreController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => $initialStatus === 'pending_approval'
+                'message' => $initialStatus === 'pending_review'
                     ? 'Product submitted for admin review.'
                     : 'Product draft saved successfully.',
                 'data' => new ProductResource($product->fresh(['category', 'brand', 'primaryImage', 'images', 'variants', 'specifications'])),
@@ -405,7 +405,7 @@ class VendorStoreController extends Controller
             'images' => 'nullable|array',
             'attribute_values' => 'nullable|array',
             'variants' => 'nullable|array',
-            'status' => 'nullable|string|in:draft,pending_approval',
+            'status' => 'nullable|string|in:draft,pending_review',
         ]);
 
         DB::transaction(function () use ($product, $validated) {
@@ -413,9 +413,9 @@ class VendorStoreController extends Controller
                 $validated['stock_status'] = $validated['stock_quantity'] > 0 ? 'in_stock' : 'out_of_stock';
             }
 
-            // If modifying an approved product, reset status to pending_approval or draft
+            // If modifying an approved product, reset status to pending_review or draft
             if ($product->status === 'approved') {
-                $validated['status'] = $validated['status'] ?? 'pending_approval';
+                $validated['status'] = $validated['status'] ?? 'pending_review';
                 $validated['is_active'] = false;
             }
 
@@ -453,13 +453,13 @@ class VendorStoreController extends Controller
         $product = Product::where('id', $id)->where('seller_id', $request->user()->id)->firstOrFail();
 
         $product->update([
-            'status' => 'pending_approval',
+            'status' => 'pending_review',
             'is_active' => false,
         ]);
 
         return response()->json([
             'success' => true,
-            'message' => 'Product submitted for admin approval.',
+            'message' => 'Product submitted for admin review.',
             'data' => new ProductResource($product->fresh()),
         ], 200);
     }
