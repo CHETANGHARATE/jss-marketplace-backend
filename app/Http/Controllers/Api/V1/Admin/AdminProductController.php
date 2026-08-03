@@ -151,9 +151,10 @@ class AdminProductController extends Controller
                 // Attach images
                 if (!empty($validated['images'])) {
                     foreach (array_slice(array_filter($validated['images']), 0, 10) as $index => $url) {
+                        $cleanUrl = $this->saveImageFromUrlOrBase64($url);
                         \App\Models\ProductImage::create([
                             'product_id' => $product->id,
-                            'image_url' => $url,
+                            'image_url' => $cleanUrl,
                             'is_primary' => ($index === 0),
                             'sort_order' => $index,
                         ]);
@@ -532,5 +533,24 @@ class AdminProductController extends Controller
             'message' => 'Product published and live on marketplace.',
             'data' => new ProductResource($product->fresh()),
         ], 200);
+    }
+
+    /**
+     * Helper to decode Base64 images to storage files or preserve standard URLs.
+     */
+    private function saveImageFromUrlOrBase64(string $urlOrBase64): string
+    {
+        if (str_starts_with($urlOrBase64, 'data:image/')) {
+            preg_match('/data:image\/(?<extension>[\w]+);base64,(?<data>.*)/', $urlOrBase64, $matches);
+            if (isset($matches['data'])) {
+                $ext = strtolower($matches['extension']) === 'jpeg' ? 'jpg' : strtolower($matches['extension']);
+                $imageData = base64_decode($matches['data']);
+                $fileName = 'products/' . \Illuminate\Support\Str::random(20) . '_' . time() . '.' . $ext;
+
+                \Illuminate\Support\Facades\Storage::disk('public')->put($fileName, $imageData);
+                return \Illuminate\Support\Facades\Storage::disk('public')->url($fileName);
+            }
+        }
+        return $urlOrBase64;
     }
 }
