@@ -317,34 +317,51 @@ class CategorySeeder extends Seeder
         ];
 
         foreach ($categoriesData as $catIndex => $cData) {
-            $parent = Category::updateOrCreate(
-                ['slug' => $cData['slug']],
-                [
-                    'parent_id' => null,
-                    'name' => $cData['name'],
-                    'description' => $cData['description'],
-                    'icon' => $cData['icon'],
-                    'is_featured' => $cData['is_featured'],
-                    'is_active' => true,
-                    'sort_order' => $catIndex,
-                    'meta_title' => $cData['name']['en'] . ' | JSS Marketplace',
-                    'meta_description' => $cData['description']['en'],
-                ]
-            );
+            $existingParent = Category::where('slug', $cData['slug'])
+                ->orWhere('name->en', $cData['name']['en'])
+                ->first();
+
+            $parentPayload = [
+                'parent_id' => null,
+                'name' => $cData['name'],
+                'slug' => $cData['slug'],
+                'description' => $cData['description'],
+                'icon' => $cData['icon'],
+                'is_featured' => $cData['is_featured'],
+                'is_active' => true,
+                'sort_order' => $catIndex,
+                'meta_title' => $cData['name']['en'] . ' | JSS Marketplace',
+                'meta_description' => $cData['description']['en'],
+            ];
+
+            if ($existingParent) {
+                $existingParent->update($parentPayload);
+                $parent = $existingParent;
+            } else {
+                $parent = Category::create($parentPayload);
+            }
 
             if (isset($cData['subcategories'])) {
                 foreach ($cData['subcategories'] as $subIndex => $subData) {
-                    Category::updateOrCreate(
-                        ['slug' => $subData['slug']],
-                        [
-                            'parent_id' => $parent->id,
-                            'name' => $subData['name'],
-                            'description' => ['en' => 'Subcategory under ' . $parent->name['en']],
-                            'is_featured' => false,
-                            'is_active' => true,
-                            'sort_order' => $subIndex,
-                        ]
-                    );
+                    $existingSub = Category::where('slug', $subData['slug'])
+                        ->orWhere('name->en', $subData['name']['en'])
+                        ->first();
+
+                    $subPayload = [
+                        'parent_id' => $parent->id,
+                        'name' => $subData['name'],
+                        'slug' => $subData['slug'],
+                        'description' => ['en' => 'Subcategory under ' . $parent->name['en']],
+                        'is_featured' => false,
+                        'is_active' => true,
+                        'sort_order' => $subIndex,
+                    ];
+
+                    if ($existingSub) {
+                        $existingSub->update($subPayload);
+                    } else {
+                        Category::create($subPayload);
+                    }
                 }
             }
         }
