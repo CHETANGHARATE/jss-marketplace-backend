@@ -34,7 +34,11 @@ class CategoryController extends Controller
                 $query->where('is_featured', true);
             }
 
-            $allCats = $query->get();
+            $allCats = $query->get()->each(function ($cat) {
+                if ($cat->relationLoaded('children')) {
+                    $cat->setRelation('children', $cat->children->unique('slug')->values());
+                }
+            });
             return $allCats->unique('slug')->values();
         });
 
