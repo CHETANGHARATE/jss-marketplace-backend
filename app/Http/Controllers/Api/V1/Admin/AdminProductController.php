@@ -48,7 +48,7 @@ class AdminProductController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => ProductResource::collection($products),
+            'data' => ProductResource::collection($products->getCollection()),
             'meta' => [
                 'current_page' => $products->currentPage(),
                 'last_page' => $products->lastPage(),
@@ -63,14 +63,15 @@ class AdminProductController extends Controller
      */
     public function pending(Request $request): JsonResponse
     {
-        $products = Product::whereIn('status', ['pending_approval', 'pending_review'])
+        $perPage = $request->get('per_page', 15);
+        $products = Product::whereIn('status', ['pending_review', 'pending_approval'])
             ->with(['category', 'brand', 'seller', 'primaryImage', 'images', 'specifications', 'variants'])
             ->latest()
-            ->paginate(15);
+            ->paginate($perPage);
 
         return response()->json([
             'success' => true,
-            'data' => ProductResource::collection($products),
+            'data' => ProductResource::collection($products->getCollection()),
             'meta' => [
                 'current_page' => $products->currentPage(),
                 'last_page' => $products->lastPage(),
