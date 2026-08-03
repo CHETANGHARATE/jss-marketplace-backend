@@ -304,13 +304,19 @@ Route::prefix('v1')->group(function () {
         // System Settings Admin
         Route::put('/settings', [SettingController::class, 'update']);
 
-        // Admin Product Moderation & Attribute Templates
+        // Admin Product Management (Modules 1-10)
+        Route::get('/products', [AdminProductController::class, 'index']);
+        Route::post('/products', [AdminProductController::class, 'store']);
         Route::get('/products/pending', [AdminProductController::class, 'pending']);
+        Route::get('/products/{id}', [AdminProductController::class, 'show']);
+        Route::put('/products/{id}', [AdminProductController::class, 'update']);
+        Route::delete('/products/{id}', [AdminProductController::class, 'destroy']);
         Route::post('/products/{id}/approve', [AdminProductController::class, 'approve']);
         Route::post('/products/{id}/reject', [AdminProductController::class, 'reject']);
         Route::post('/products/{id}/request-changes', [AdminProductController::class, 'requestChanges']);
         Route::post('/products/{id}/unpublish', [AdminProductController::class, 'unpublish']);
         Route::post('/products/{id}/publish', [AdminProductController::class, 'publish']);
+        Route::post('/products/{id}/duplicate', [AdminProductController::class, 'duplicate']);
         Route::apiResource('/attribute-templates', AttributeTemplateController::class);
 
         // Category Management
