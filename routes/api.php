@@ -309,6 +309,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/products/{id}/approve', [AdminProductController::class, 'approve']);
         Route::post('/products/{id}/reject', [AdminProductController::class, 'reject']);
         Route::post('/products/{id}/request-changes', [AdminProductController::class, 'requestChanges']);
+        Route::post('/products/{id}/unpublish', [AdminProductController::class, 'unpublish']);
+        Route::post('/products/{id}/publish', [AdminProductController::class, 'publish']);
         Route::apiResource('/attribute-templates', AttributeTemplateController::class);
 
         // Category Management

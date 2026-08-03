@@ -39,6 +39,20 @@ class AdminProductController extends Controller
     {
         $product = Product::findOrFail($id);
 
+        if ($product->status === 'approved' && $product->is_active) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Product is already approved and live.',
+            ], 400);
+        }
+
+        if (in_array($product->status, ['archived'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Archived products cannot be approved directly.',
+            ], 400);
+        }
+
         $product->update([
             'status' => 'approved',
             'is_active' => true,
@@ -53,7 +67,7 @@ class AdminProductController extends Controller
     }
 
     /**
-     * Reject a vendor product with reason.
+     * Reject a vendor product submission with remarks.
      */
     public function reject(Request $request, int $id): JsonResponse
     {
@@ -63,6 +77,27 @@ class AdminProductController extends Controller
 
         $product = Product::findOrFail($id);
 
+        if ($product->status === 'rejected') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Product is already rejected.',
+            ], 400);
+        }
+
+        if ($product->status === 'approved') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot reject an already approved product directly. Please unpublish first.',
+            ], 400);
+        }
+
+        if ($product->status === 'draft') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Draft products cannot be rejected until submitted by the vendor.',
+            ], 400);
+        }
+
         $product->update([
             'status' => 'rejected',
             'is_active' => false,
@@ -71,13 +106,13 @@ class AdminProductController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Product rejected.',
+            'message' => 'Product submission rejected.',
             'data' => new ProductResource($product->fresh(['category', 'brand', 'seller'])),
         ], 200);
     }
 
     /**
-     * Request changes for a vendor product (reverts to draft).
+     * Request changes for a vendor product (reverts to draft with remarks).
      */
     public function requestChanges(Request $request, int $id): JsonResponse
     {
@@ -87,6 +122,13 @@ class AdminProductController extends Controller
 
         $product = Product::findOrFail($id);
 
+        if (!in_array($product->status, ['pending_approval', 'pending_review'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Can only request changes for products pending moderation review.',
+            ], 400);
+        }
+
         $product->update([
             'status' => 'draft',
             'is_active' => false,
@@ -95,7 +137,59 @@ class AdminProductController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Product sent back to vendor for changes.',
+            'message' => 'Product sent back to vendor with change requests.',
+            'data' => new ProductResource($product->fresh()),
+        ], 200);
+    }
+
+    /**
+     * Unpublish an approved product (sets status = hidden).
+     */
+    public function unpublish(int $id): JsonResponse
+    {
+        $product = Product::findOrFail($id);
+
+        if ($product->status !== 'approved') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only approved products can be unpublished.',
+            ], 400);
+        }
+
+        $product->update([
+            'status' => 'hidden',
+            'is_active' => false,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Product unpublished and hidden from marketplace.',
+            'data' => new ProductResource($product->fresh()),
+        ], 200);
+    }
+
+    /**
+     * Re-publish a hidden product.
+     */
+    public function publish(int $id): JsonResponse
+    {
+        $product = Product::findOrFail($id);
+
+        if ($product->status === 'approved' && $product->is_active) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Product is already published.',
+            ], 400);
+        }
+
+        $product->update([
+            'status' => 'approved',
+            'is_active' => true,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Product re-published and live on marketplace.',
             'data' => new ProductResource($product->fresh()),
         ], 200);
     }
