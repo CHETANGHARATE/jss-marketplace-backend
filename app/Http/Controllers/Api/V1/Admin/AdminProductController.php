@@ -68,16 +68,34 @@ class AdminProductController extends Controller
             ->with(['category', 'brand', 'seller', 'primaryImage', 'images', 'specifications', 'variants'])
             ->latest();
 
-        Log::info('ADMIN_PENDING_PRODUCTS_SQL: ' . $query->toSql(), [
-            'bindings' => $query->getBindings(),
-            'total_pending_count' => $query->count(),
-        ]);
+        $sql = $query->toSql();
+        $bindings = $query->getBindings();
+        $totalBeforePagination = (clone $query)->count();
 
         $products = $query->paginate($perPage);
+        $items = $products->getCollection();
+
+        $returnedSummary = $items->map(function ($item) {
+            return [
+                'id' => $item->id,
+                'name' => is_array($item->name) ? ($item->name['en'] ?? reset($item->name)) : $item->name,
+                'seller_id' => $item->seller_id,
+                'status' => $item->status,
+                'is_active' => $item->is_active,
+            ];
+        })->toArray();
+
+        Log::info('ADMIN_PENDING_PRODUCTS_INSTRUMENTATION', [
+            'sql' => $sql,
+            'bindings' => $bindings,
+            'total_records_before_pagination' => $totalBeforePagination,
+            'returned_items_count' => count($returnedSummary),
+            'returned_items' => $returnedSummary,
+        ]);
 
         return response()->json([
             'success' => true,
-            'data' => ProductResource::collection($products->getCollection()),
+            'data' => ProductResource::collection($items),
             'meta' => [
                 'current_page' => $products->currentPage(),
                 'last_page' => $products->lastPage(),
