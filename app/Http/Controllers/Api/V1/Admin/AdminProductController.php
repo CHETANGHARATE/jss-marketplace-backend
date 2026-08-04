@@ -48,7 +48,7 @@ class AdminProductController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => ProductResource::collection($products->getCollection()),
+            'data' => ProductResource::collection($products->getCollection())->resolve(),
             'meta' => [
                 'current_page' => $products->currentPage(),
                 'last_page' => $products->lastPage(),
@@ -95,7 +95,7 @@ class AdminProductController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => ProductResource::collection($items),
+            'data' => ProductResource::collection($items)->resolve(),
             'meta' => [
                 'current_page' => $products->currentPage(),
                 'last_page' => $products->lastPage(),
