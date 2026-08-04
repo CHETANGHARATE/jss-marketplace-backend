@@ -14,7 +14,7 @@ class UpdateProductStatusRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'status' => ['required', 'string', 'in:draft,pending_approval,approved,rejected,archived'],
+            'status' => ['required', 'string', 'in:draft,pending_review,pending_approval,approved,rejected,hidden,archived,out_of_stock'],
             'rejection_reason' => ['required_if:status,rejected', 'nullable', 'string'],
         ];
     }

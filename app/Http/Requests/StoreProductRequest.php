@@ -32,7 +32,7 @@ class StoreProductRequest extends FormRequest
             'is_featured' => ['sometimes', 'boolean'],
             'is_trending' => ['sometimes', 'boolean'],
             'is_active' => ['sometimes', 'boolean'],
-            'status' => ['sometimes', 'string', 'in:draft,pending_approval,approved,rejected,archived'],
+            'status' => ['sometimes', 'string', 'in:draft,pending_review,pending_approval,approved,rejected,hidden,archived,out_of_stock'],
             'images' => ['nullable', 'array'],
             'images.*' => ['string', 'max:500'],
             'specifications' => ['nullable', 'array'],

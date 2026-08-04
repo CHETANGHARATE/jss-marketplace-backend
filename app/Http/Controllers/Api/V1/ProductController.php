@@ -143,9 +143,9 @@ class ProductController extends Controller
 
             $validated['seller_id'] = $sellerId;
 
-            // Sellers default to pending_approval unless Admin creates
+            // Sellers default to pending_review unless Admin creates
             if ($request->user()->isSeller()) {
-                $validated['status'] = 'pending_approval';
+                $validated['status'] = 'pending_review';
             }
 
             $product = Product::create($validated);
