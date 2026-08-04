@@ -64,10 +64,16 @@ class AdminProductController extends Controller
     public function pending(Request $request): JsonResponse
     {
         $perPage = $request->get('per_page', 15);
-        $products = Product::whereIn('status', ['pending_review', 'pending_approval'])
+        $query = Product::whereIn('status', ['pending_review', 'pending_approval'])
             ->with(['category', 'brand', 'seller', 'primaryImage', 'images', 'specifications', 'variants'])
-            ->latest()
-            ->paginate($perPage);
+            ->latest();
+
+        Log::info('ADMIN_PENDING_PRODUCTS_SQL: ' . $query->toSql(), [
+            'bindings' => $query->getBindings(),
+            'total_pending_count' => $query->count(),
+        ]);
+
+        $products = $query->paginate($perPage);
 
         return response()->json([
             'success' => true,
