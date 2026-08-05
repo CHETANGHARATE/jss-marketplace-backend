@@ -565,6 +565,87 @@ class AdminProductController extends Controller
     }
 
     /**
+     * Archive an approved or draft product.
+     */
+    public function archive(int $id): JsonResponse
+    {
+        $product = Product::findOrFail($id);
+
+        $product->update([
+            'status' => 'archived',
+            'is_active' => false,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Product archived successfully.',
+            'data' => new ProductResource($product->fresh()),
+        ], 200);
+    }
+
+    /**
+     * Restore an archived or soft-deleted product.
+     */
+    public function restore(int $id): JsonResponse
+    {
+        $product = Product::withTrashed()->findOrFail($id);
+
+        if ($product->trashed()) {
+            $product->restore();
+        }
+
+        $product->update([
+            'status' => 'approved',
+            'is_active' => true,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Product restored and activated successfully.',
+            'data' => new ProductResource($product->fresh()),
+        ], 200);
+    }
+
+    /**
+     * Perform bulk operations on products.
+     */
+    public function bulkAction(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'product_ids' => 'required|array|min:1',
+            'product_ids.*' => 'integer|exists:products,id',
+            'action' => 'required|string|in:publish,unpublish,approve,reject,archive,delete,change_category,change_brand,update_gst,update_stock',
+            'category_id' => 'nullable|integer|exists:categories,id',
+            'brand_id' => 'nullable|integer|exists:brands,id',
+            'gst_percent' => 'nullable|numeric|min:0',
+            'stock_quantity' => 'nullable|integer|min:0',
+            'rejection_reason' => 'nullable|string',
+        ]);
+
+        $ids = $validated['product_ids'];
+        $action = $validated['action'];
+
+        DB::transaction(function () use ($ids, $action, $validated) {
+            match ($action) {
+                'publish', 'approve' => Product::whereIn('id', $ids)->update(['status' => 'approved', 'is_active' => true, 'rejection_reason' => null]),
+                'unpublish' => Product::whereIn('id', $ids)->update(['status' => 'hidden', 'is_active' => false]),
+                'reject' => Product::whereIn('id', $ids)->update(['status' => 'rejected', 'is_active' => false, 'rejection_reason' => $validated['rejection_reason'] ?? 'Bulk rejected by Admin']),
+                'archive' => Product::whereIn('id', $ids)->update(['status' => 'archived', 'is_active' => false]),
+                'delete' => Product::whereIn('id', $ids)->delete(),
+                'change_category' => isset($validated['category_id']) && Product::whereIn('id', $ids)->update(['category_id' => $validated['category_id']]),
+                'change_brand' => isset($validated['brand_id']) && Product::whereIn('id', $ids)->update(['brand_id' => $validated['brand_id']]),
+                'update_gst' => isset($validated['gst_percent']) && Product::whereIn('id', $ids)->update(['gst_percent' => $validated['gst_percent']]),
+                'update_stock' => isset($validated['stock_quantity']) && Product::whereIn('id', $ids)->update(['stock_quantity' => $validated['stock_quantity']]),
+            };
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => "Bulk action '{$action}' applied to " . count($ids) . " products successfully.",
+        ], 200);
+    }
+
+    /**
      * Helper to decode Base64 images to storage files or preserve standard URLs.
      */
     private function saveImageFromUrlOrBase64(string $urlOrBase64): string
