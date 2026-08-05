@@ -15,11 +15,20 @@ class ProductFilterService
     {
         $query = $query ?? Product::query()->approved();
 
-        // 1. Category Filter (by slug or ID)
-        if ($request->filled('category')) {
-            $cat = $request->input('category');
-            $query->whereHas('category', function ($q) use ($cat) {
-                is_numeric($cat) ? $q->where('id', $cat) : $q->where('slug', $cat);
+        // 1. Category Filter (by slug, ID, or category_id)
+        if ($request->filled('category') || $request->filled('category_id')) {
+            $cat = $request->input('category') ?? $request->input('category_id');
+            $query->where(function ($q) use ($cat) {
+                if (is_numeric($cat)) {
+                    $catId = (int) $cat;
+                    $q->where('category_id', $catId)
+                      ->orWhere('subcategory_id', $catId)
+                      ->orWhere('child_category_id', $catId)
+                      ->orWhereHas('category', fn($cq) => $cq->where('id', $catId)->orWhere('parent_id', $catId));
+                } else {
+                    $q->whereHas('category', fn($cq) => $cq->where('slug', $cat))
+                      ->orWhereHas('subcategory', fn($sq) => $sq->where('slug', $cat));
+                }
             });
         }
 
