@@ -158,6 +158,9 @@ Route::prefix('v1')->group(function () {
         });
     });
 
+    // Alias for authenticated user profile (/api/v1/me)
+    Route::middleware('auth:sanctum')->get('/me', [AuthController::class, 'me']);
+
     // Public System Settings
     Route::get('/settings', [SettingController::class, 'index']);
 
