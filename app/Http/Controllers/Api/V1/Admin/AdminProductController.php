@@ -33,7 +33,7 @@ class AdminProductController extends Controller
 
         if ($request->filled('status') && $request->status !== 'all') {
             if ($request->status === 'pending') {
-                $query->whereIn('status', ['pending_review', 'pending_approval']);
+                $query->whereIn('status', ['pending', 'pending_review', 'pending_approval']);
             } else {
                 $query->where('status', $request->status);
             }
@@ -68,7 +68,7 @@ class AdminProductController extends Controller
     public function pending(Request $request): JsonResponse
     {
         $perPage = $request->get('per_page', 15);
-        $query = Product::whereIn('status', ['pending_review', 'pending_approval'])
+        $query = Product::whereIn('status', ['pending', 'pending_review', 'pending_approval'])
             ->with(['category', 'brand', 'seller', 'primaryImage', 'images', 'specifications', 'variants'])
             ->latest();
 

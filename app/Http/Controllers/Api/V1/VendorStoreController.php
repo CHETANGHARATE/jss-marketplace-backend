@@ -249,8 +249,8 @@ class VendorStoreController extends Controller
             $sellerId = $request->user()->id;
             $slug = \Illuminate\Support\Str::slug($validated['name']) . '-' . \Illuminate\Support\Str::random(6);
 
-            // VENDOR PRODUCTS NEVER BECOME LIVE AUTOMATICALLY! Default to draft or pending_review
-            $initialStatus = in_array($validated['status'] ?? '', ['pending_review']) ? 'pending_review' : 'draft';
+            // Vendor products default to pending_review when created for moderation unless explicitly saved as draft
+            $initialStatus = ($validated['status'] ?? 'pending_review') === 'draft' ? 'draft' : 'pending_review';
 
             $product = DB::transaction(function () use ($validated, $sellerId, $slug, $initialStatus) {
                 $product = Product::create([
