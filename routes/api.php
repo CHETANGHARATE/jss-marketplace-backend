@@ -281,6 +281,9 @@ Route::prefix('v1')->group(function () {
         Route::get('/loyalty/points', [PromotionController::class, 'loyaltyPoints']);
         Route::get('/recommendations/personalized', [SearchController::class, 'personalized']);
 
+        // Media Upload Engine (Accessible to authenticated Vendors & Admins)
+        Route::post('/media/upload', [MediaController::class, 'upload']);
+
         // Vendor Dashboard & Store Operations (Module 11)
         Route::prefix('vendor')->group(function () {
             Route::post('/store', [VendorStoreController::class, 'register']);
