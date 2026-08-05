@@ -31,8 +31,12 @@ class AdminProductController extends Controller
             });
         }
 
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
+        if ($request->filled('status') && $request->status !== 'all') {
+            if ($request->status === 'pending') {
+                $query->whereIn('status', ['pending_review', 'pending_approval']);
+            } else {
+                $query->where('status', $request->status);
+            }
         }
 
         if ($request->filled('category_id')) {
