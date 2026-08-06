@@ -35,8 +35,10 @@ class ProductResource extends JsonResource
             'short_description' => $this->short_description,
             'description' => $descVal,
             'image' => $this->formatImageUrl($mainImage),
+            'thumbnail' => $this->formatImageUrl($mainImage),
+            'primary_image' => $this->formatImageUrl($mainImage),
             'images' => $this->relationLoaded('images') 
-                ? $this->images->map(fn($img) => $this->formatImageUrl($img->image_url))->toArray() 
+                ? $this->images->map(fn($img) => $this->formatImageUrl($img->image_url))->values()->toArray() 
                 : ($mainImage ? [$this->formatImageUrl($mainImage)] : []),
             'originalPrice' => (float) $this->original_price,
             'offerPrice' => (float) $this->offer_price,
