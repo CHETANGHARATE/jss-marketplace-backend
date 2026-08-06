@@ -30,34 +30,23 @@ class AdminBulkImportController extends Controller
         ignore_user_abort(true);
 
         try {
-            $validated = $request->validate([
-                'products' => 'required|array|min:1',
-                'products.*.Product Name' => 'nullable|string',
-                'products.*.name' => 'nullable|string',
-                'products.*.Category' => 'nullable|string',
-                'products.*.category' => 'nullable|string',
-                'products.*.Subcategory' => 'nullable|string',
-                'products.*.subcategory' => 'nullable|string',
-                'products.*.Brand' => 'nullable|string',
-                'products.*.brand' => 'nullable|string',
-                'products.*.SKU' => 'nullable|string',
-                'products.*.sku' => 'nullable|string',
-                'products.*.Slug' => 'nullable|string',
-                'products.*.slug' => 'nullable|string',
-                'products.*.Price' => 'nullable',
-                'products.*.price' => 'nullable',
-                'products.*.Offer Price' => 'nullable',
-                'products.*.offer_price' => 'nullable',
-                'products.*.Stock' => 'nullable',
-                'products.*.stock' => 'nullable',
-                'products.*.Status' => 'nullable|string',
-                'products.*.status' => 'nullable|string',
-                'products.*.Image Filename' => 'nullable|string',
-                'products.*.image_filename' => 'nullable|string',
-                'update_existing' => 'nullable|boolean',
-            ]);
+            // Flexible products extraction
+            $products = $request->input('products');
+            if (empty($products)) {
+                $rawContent = $request->getContent();
+                if (!empty($rawContent)) {
+                    $decoded = json_decode($rawContent, true);
+                    $products = $decoded['products'] ?? (array_is_list($decoded) ? $decoded : null);
+                }
+            }
 
-            $products = $validated['products'];
+            if (empty($products) || !is_array($products)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'The products field is required and must be a non-empty array.',
+                ], 422);
+            }
+
             $updateExisting = $request->boolean('update_existing', false);
 
             $connectionName = config('database.default');
@@ -262,15 +251,34 @@ class AdminBulkImportController extends Controller
         ignore_user_abort(true);
 
         try {
-            $validated = $request->validate([
-                'products' => 'required|array|min:1',
-                'update_existing' => 'nullable|boolean',
-                'images' => 'nullable|array', // Optional base64 or custom paths map
-            ]);
+            // Multi-fallback products resolution
+            $products = $request->input('products');
 
-            $products = $validated['products'];
+            if (empty($products)) {
+                $rawContent = $request->getContent();
+                if (!empty($rawContent)) {
+                    $decoded = json_decode($rawContent, true);
+                    if (is_array($decoded)) {
+                        $products = $decoded['products'] ?? (array_is_list($decoded) ? $decoded : null);
+                    }
+                }
+            }
+
+            if (empty($products) || !is_array($products)) {
+                Log::warning("Bulk Import Execute Empty Products Payload", [
+                    'content_length' => $request->header('Content-Length'),
+                    'content_type' => $request->header('Content-Type'),
+                    'input_keys' => array_keys($request->all()),
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'The products field is required and must be a non-empty array of product objects.',
+                ], 422);
+            }
+
             $updateExisting = $request->boolean('update_existing', false);
-            $uploadedImagesMap = $validated['images'] ?? [];
+            $uploadedImagesMap = $request->input('images', []);
 
             $connectionName = config('database.default');
             $databaseName = DB::connection()->getDatabaseName();
@@ -309,7 +317,7 @@ class AdminBulkImportController extends Controller
             foreach ($products as $index => $item) {
                 $rowNumber = $index + 1;
 
-                // Execute each product inside an isolated row-level transaction on the default database connection
+                // Execute each product inside an isolated row-level transaction on default connection
                 DB::beginTransaction();
 
                 try {
