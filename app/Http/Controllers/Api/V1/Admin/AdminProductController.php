@@ -159,8 +159,8 @@ class AdminProductController extends Controller
                 'status' => 'nullable|string',
             ]);
 
-            $status = $request->get('status', 'approved');
-            $isActive = ($status === 'approved');
+            $status = 'approved';
+            $isActive = true;
 
             $sku = $validated['sku'] ?? 'SKU-ADM-' . strtoupper(Str::random(8));
 
@@ -168,8 +168,9 @@ class AdminProductController extends Controller
                 'seller_id' => $request->user()->id,
                 'sku' => $sku,
                 'slug' => Str::slug($validated['name']) . '-' . strtolower(Str::random(5)),
-                'status' => $status,
-                'is_active' => $isActive,
+                'status' => 'approved',
+                'is_active' => true,
+                'published_at' => now(),
             ]);
 
             unset($productData['images'], $productData['attribute_values'], $productData['specifications'], $productData['custom_specifications'], $productData['variants']);

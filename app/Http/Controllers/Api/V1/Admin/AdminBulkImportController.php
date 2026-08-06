@@ -416,9 +416,9 @@ class AdminBulkImportController extends Controller
                         $imageUrl = "/storage/products/" . $imageFilename;
                     }
 
-                    // Determine Status & Active State
-                    $productStatus = in_array($statusInput, ['draft', 'pending', 'rejected', 'archived']) ? $statusInput : 'approved';
-                    $isActive = ($productStatus === 'approved');
+                    // Determine Status & Active State for Super Admin Import (auto-approved and live)
+                    $productStatus = 'approved';
+                    $isActive = true;
 
                     // Clean Slug
                     $finalSlug = !empty($slug) ? Str::slug($slug) : Str::slug($name);
@@ -442,9 +442,10 @@ class AdminBulkImportController extends Controller
                         'offer_price' => $offerPrice,
                         'stock_quantity' => $stock,
                         'stock_status' => $stock > 0 ? 'in_stock' : 'out_of_stock',
-                        'status' => $productStatus,
-                        'is_active' => $isActive,
+                        'status' => 'approved',
+                        'is_active' => true,
                         'is_featured' => true,
+                        'published_at' => now(),
                         'meta_title' => $seoTitle,
                         'meta_description' => $seoDescription,
                         'search_keywords' => $tags,

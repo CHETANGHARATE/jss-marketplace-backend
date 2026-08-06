@@ -316,6 +316,7 @@ Route::prefix('v1')->group(function () {
         // Admin Product Management (Modules 1-10)
         Route::get('/products', [AdminProductController::class, 'index']);
         Route::post('/products', [AdminProductController::class, 'store']);
+        Route::post('/products/bulk-action', [AdminProductController::class, 'bulkAction']);
         Route::post('/products/import/validate', [AdminBulkImportController::class, 'validateImport']);
         Route::post('/products/import/execute', [AdminBulkImportController::class, 'executeImport']);
         Route::get('/products/pending', [AdminProductController::class, 'pending']);
