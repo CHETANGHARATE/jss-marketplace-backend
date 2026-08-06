@@ -26,8 +26,9 @@ class ProductDetailResource extends ProductResource
 
         return array_merge($base, [
             'short_description' => $shortDescVal,
-            'description' => $descVal,
-            'images' => $this->relationLoaded('images') ? $this->images->pluck('image_url') : [],
+            'images' => $this->relationLoaded('images') 
+                ? $this->images->map(fn($img) => $this->formatImageUrl($img->image_url))->values()->toArray() 
+                : ($base['image'] ? [$base['image']] : []),
             'specifications' => ProductSpecificationResource::collection($this->whenLoaded('specifications')),
             'tags' => $this->relationLoaded('tags') ? $this->tags->pluck('tag') : [],
             'attributes' => AttributeValueResource::collection($this->whenLoaded('attributeValues')),

@@ -24,6 +24,8 @@ class ProductResource extends JsonResource
             ? ($this->description[$locale] ?? $this->description['en'] ?? '') 
             : $this->description;
 
+        $mainImage = $this->thumbnail ?? $this->primaryImage?->image_url ?? ($this->relationLoaded('images') && $this->images->first() ? $this->images->first()->image_url : null);
+
         return [
             'id' => $this->id,
             'sku' => $this->sku,
@@ -32,8 +34,10 @@ class ProductResource extends JsonResource
             'slug' => $this->slug,
             'short_description' => $this->short_description,
             'description' => $descVal,
-            'image' => $this->thumbnail ?? $this->primaryImage?->image_url ?? ($this->relationLoaded('images') && $this->images->first() ? $this->images->first()->image_url : null),
-            'images' => $this->relationLoaded('images') ? $this->images->pluck('image_url')->toArray() : [],
+            'image' => $this->formatImageUrl($mainImage),
+            'images' => $this->relationLoaded('images') 
+                ? $this->images->map(fn($img) => $this->formatImageUrl($img->image_url))->toArray() 
+                : ($mainImage ? [$this->formatImageUrl($mainImage)] : []),
             'originalPrice' => (float) $this->original_price,
             'offerPrice' => (float) $this->offer_price,
             'cost_price' => (float) $this->cost_price,
@@ -100,5 +104,26 @@ class ProductResource extends JsonResource
             'attribute_values' => $this->relationLoaded('attributeValues') ? $this->attributeValues : [],
             'created_at' => $this->created_at?->toIso8601String(),
         ];
+    }
+
+    /**
+     * Format image URL to guarantee full absolute HTTP(S) URL.
+     */
+    private function formatImageUrl(?string $url): ?string
+    {
+        if (empty($url)) {
+            return null;
+        }
+
+        if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
+            return $url;
+        }
+
+        $cleanPath = ltrim($url, '/');
+        if (!str_starts_with($cleanPath, 'storage/')) {
+            $cleanPath = 'storage/products/' . $cleanPath;
+        }
+
+        return url($cleanPath);
     }
 }
