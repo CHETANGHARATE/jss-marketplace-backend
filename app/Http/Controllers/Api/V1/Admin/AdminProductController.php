@@ -271,6 +271,7 @@ class AdminProductController extends Controller
             'primaryImage',
             'images',
             'variants',
+            'specifications',
             'attributeValues.attribute',
             'reviews'
         ])->findOrFail($id);
