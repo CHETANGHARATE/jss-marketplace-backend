@@ -150,12 +150,12 @@ class CategorySeeder extends Seeder
                 ]
             ],
             [
-                'name' => ['en' => 'Agriculture', 'hi' => 'कृषि और खेती', 'mr' => 'कृषी व शेती'],
-                'slug' => 'agriculture',
+                'name' => ['en' => 'Agriculture & Seeds', 'hi' => 'कृषि और बीज', 'mr' => 'कृषी व बियाणे'],
+                'slug' => 'agriculture-seeds',
                 'description' => ['en' => 'High yield seeds, bio fertilizers, pesticides, and farm tools', 'hi' => 'बीज, जैविक उर्वरक, कीटनाशक और कृषि उपकरण'],
                 'icon' => 'Sprout',
-                'is_featured' => false,
-                'is_active' => false,
+                'is_featured' => true,
+                'is_active' => true,
                 'subcategories' => [
                     ['name' => ['en' => 'High Yield Seeds', 'hi' => 'उच्च उपज वाले बीज'], 'slug' => 'high-yield-seeds'],
                     ['name' => ['en' => 'Bio Fertilizers & Compost', 'hi' => 'जैविक खाद और उर्वरक'], 'slug' => 'bio-fertilizers-compost'],
