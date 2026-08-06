@@ -393,10 +393,10 @@ class AdminProductController extends Controller
      */
     public function destroy(int $id): JsonResponse
     {
-        $product = Product::findOrFail($id);
+        $product = Product::withTrashed()->findOrFail($id);
         $product->images()->delete();
         $product->variants()->delete();
-        $product->delete();
+        $product->forceDelete();
 
         return response()->json([
             'success' => true,
@@ -633,7 +633,7 @@ class AdminProductController extends Controller
                 'unpublish' => Product::whereIn('id', $ids)->update(['status' => 'hidden', 'is_active' => false]),
                 'reject' => Product::whereIn('id', $ids)->update(['status' => 'rejected', 'is_active' => false, 'rejection_reason' => $validated['rejection_reason'] ?? 'Bulk rejected by Admin']),
                 'archive' => Product::whereIn('id', $ids)->update(['status' => 'archived', 'is_active' => false]),
-                'delete' => Product::whereIn('id', $ids)->delete(),
+                'delete' => Product::whereIn('id', $ids)->forceDelete(),
                 'change_category' => isset($validated['category_id']) && Product::whereIn('id', $ids)->update(['category_id' => $validated['category_id']]),
                 'change_brand' => isset($validated['brand_id']) && Product::whereIn('id', $ids)->update(['brand_id' => $validated['brand_id']]),
                 'update_gst' => isset($validated['gst_percent']) && Product::whereIn('id', $ids)->update(['gst_percent' => $validated['gst_percent']]),

@@ -117,12 +117,15 @@ class AdminBulkImportController extends Controller
                     $rowErrors[] = "Offer Price (₹{$offerPrice}) cannot be greater than original Price (₹{$price}).";
                 }
 
-                // 3. SKU Uniqueness & Existing Check via Eloquent
-                $existingProduct = Product::where('sku', $sku)->first();
+                // 3. SKU Uniqueness & Existing Check via Eloquent (including soft-deleted trashed records)
+                $existingProduct = Product::withTrashed()->where('sku', $sku)->first();
                 $isUpdate = false;
 
                 if ($existingProduct) {
-                    if ($updateExisting) {
+                    if ($existingProduct->trashed()) {
+                        $isUpdate = true;
+                        $rowWarnings[] = "SKU '{$sku}' exists in trash. Will be restored and updated.";
+                    } else if ($updateExisting) {
                         $isUpdate = true;
                         $rowWarnings[] = "SKU '{$sku}' already exists. Will be updated.";
                     } else {
@@ -343,11 +346,18 @@ class AdminBulkImportController extends Controller
                         throw new \Exception("Mandatory product fields missing or invalid price.");
                     }
 
-                    // SKU Duplicate check via Eloquent
-                    $existingProduct = Product::where('sku', $sku)->first();
-                    if ($existingProduct && !$updateExisting) {
-                        $report['duplicate_sku']++;
-                        throw new \Exception("Duplicate SKU '{$sku}' already exists in database.");
+                    // SKU Duplicate check including soft-deleted trashed records
+                    $existingProduct = Product::withTrashed()->where('sku', $sku)->first();
+
+                    if ($existingProduct) {
+                        if ($existingProduct->trashed()) {
+                            // Restore soft-deleted product
+                            $existingProduct->restore();
+                            $existingProduct->update(['deleted_at' => null]);
+                        } else if (!$updateExisting) {
+                            $report['duplicate_sku']++;
+                            throw new \Exception("Duplicate SKU '{$sku}' already exists in database.");
+                        }
                     }
 
                     // 1. Resolve or Create Category using environment-independent Eloquent JSON query
@@ -446,13 +456,14 @@ class AdminBulkImportController extends Controller
                         'is_active' => true,
                         'is_featured' => true,
                         'published_at' => now(),
+                        'deleted_at' => null,
                         'meta_title' => $seoTitle,
                         'meta_description' => $seoDescription,
                         'search_keywords' => $tags,
                         'highlights' => !empty($tags) ? array_map('trim', explode(',', $tags)) : null,
                     ];
 
-                    if ($existingProduct && $updateExisting) {
+                    if ($existingProduct) {
                         $existingProduct->update($productData);
                         $product = $existingProduct;
 
