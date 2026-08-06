@@ -85,7 +85,12 @@ class ProductFilterService
             });
         }
 
-        // 9. Sorting
+        // 9. In Stock First (optional prioritization)
+        if ($request->boolean('in_stock_first')) {
+            $query->orderByRaw('CASE WHEN stock_quantity > 0 THEN 0 ELSE 1 END');
+        }
+
+        // 10. Sorting
         $sortBy = $request->input('sort_by', 'newest');
         match ($sortBy) {
             'price_low_high' => $query->orderBy('offer_price', 'asc'),
