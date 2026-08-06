@@ -22,6 +22,7 @@ class AdminBulkImportController extends Controller
 {
     /**
      * Validate product records parsed from Excel / CSV before committing to database.
+     * Always operates on the default database connection configured in .env.
      */
     public function validateImport(Request $request): JsonResponse
     {
@@ -56,6 +57,15 @@ class AdminBulkImportController extends Controller
             $products = $validated['products'];
             $updateExisting = $request->boolean('update_existing', false);
 
+            $connectionName = config('database.default');
+            $databaseName = DB::connection()->getDatabaseName();
+
+            Log::info("Bulk Import Validation Request Started", [
+                'database_connection' => $connectionName,
+                'database_name' => $databaseName,
+                'total_rows' => count($products),
+            ]);
+
             $summary = [
                 'total' => count($products),
                 'valid' => 0,
@@ -63,6 +73,8 @@ class AdminBulkImportController extends Controller
                 'duplicate_skus' => 0,
                 'missing_images' => 0,
                 'invalid_categories' => 0,
+                'database_connection' => $connectionName,
+                'database_name' => $databaseName,
             ];
 
             $validatedRows = [];
@@ -113,7 +125,7 @@ class AdminBulkImportController extends Controller
                     $rowErrors[] = "Offer Price (₹{$offerPrice}) cannot be greater than original Price (₹{$price}).";
                 }
 
-                // 3. SKU Uniqueness & Existing Check
+                // 3. SKU Uniqueness & Existing Check via Eloquent
                 $existingProduct = Product::where('sku', $sku)->first();
                 $isUpdate = false;
 
@@ -127,7 +139,7 @@ class AdminBulkImportController extends Controller
                     }
                 }
 
-                // 4. Category & Subcategory Lookup
+                // 4. Category & Subcategory Lookup using Environment-Independent Eloquent JSON syntax
                 $catId = null;
                 $subcatId = null;
 
@@ -135,12 +147,8 @@ class AdminBulkImportController extends Controller
                     $categoryObj = Category::whereNull('parent_id')
                         ->where(function ($q) use ($categoryName) {
                             $q->where('slug', Str::slug($categoryName))
-                              ->orWhere('name', 'like', "%{$categoryName}%");
-                            if (DB::getDriverName() === 'mysql') {
-                                $q->orWhere(DB::raw("JSON_UNQUOTE(JSON_EXTRACT(name, '$.en'))"), 'like', "%{$categoryName}%");
-                            } else {
-                                $q->orWhere(DB::raw("json_extract(name, '$.en')"), 'like', "%{$categoryName}%");
-                            }
+                              ->orWhere('name', 'like', "%{$categoryName}%")
+                              ->orWhere('name->en', 'like', "%{$categoryName}%");
                         })->first();
 
                     if ($categoryObj) {
@@ -149,12 +157,8 @@ class AdminBulkImportController extends Controller
                             $subcatObj = Category::where('parent_id', $catId)
                                 ->where(function ($q) use ($subcategoryName) {
                                     $q->where('slug', Str::slug($subcategoryName))
-                                      ->orWhere('name', 'like', "%{$subcategoryName}%");
-                                    if (DB::getDriverName() === 'mysql') {
-                                        $q->orWhere(DB::raw("JSON_UNQUOTE(JSON_EXTRACT(name, '$.en'))"), 'like', "%{$subcategoryName}%");
-                                    } else {
-                                        $q->orWhere(DB::raw("json_extract(name, '$.en')"), 'like', "%{$subcategoryName}%");
-                                    }
+                                      ->orWhere('name', 'like', "%{$subcategoryName}%")
+                                      ->orWhere('name->en', 'like', "%{$subcategoryName}%");
                                 })->first();
 
                             if ($subcatObj) {
@@ -168,7 +172,7 @@ class AdminBulkImportController extends Controller
                     }
                 }
 
-                // 5. Brand Lookup
+                // 5. Brand Lookup via Eloquent
                 $brandId = null;
                 if (!empty($brandName)) {
                     $brandObj = Brand::where('name', 'like', "%{$brandName}%")
@@ -247,6 +251,7 @@ class AdminBulkImportController extends Controller
 
     /**
      * Execute bulk import with per-row transaction isolation.
+     * Always writes to Laravel's default configured database connection.
      */
     public function executeImport(Request $request): JsonResponse
     {
@@ -261,6 +266,16 @@ class AdminBulkImportController extends Controller
             $updateExisting = $request->boolean('update_existing', false);
             $uploadedImagesMap = $validated['images'] ?? [];
 
+            $connectionName = config('database.default');
+            $databaseName = DB::connection()->getDatabaseName();
+
+            Log::info("==========================================");
+            Log::info("Bulk Product Import Execution Started");
+            Log::info("Database Connection: " . $connectionName);
+            Log::info("Database Name: " . $databaseName);
+            Log::info("Total Products to Process: " . count($products));
+            Log::info("==========================================");
+
             $report = [
                 'total_processed' => count($products),
                 'imported_successfully' => 0,
@@ -269,9 +284,12 @@ class AdminBulkImportController extends Controller
                 'missing_images' => 0,
                 'invalid_category' => 0,
                 'errors' => 0,
+                'database_connection' => $connectionName,
+                'database_name' => $databaseName,
                 'failed_rows' => [],
             ];
 
+            // Resolve seller ID
             $sellerId = Auth::check() ? Auth::id() : null;
             if (!$sellerId) {
                 $adminUser = \App\Models\User::where('role', 'admin')->first()
@@ -285,7 +303,7 @@ class AdminBulkImportController extends Controller
             foreach ($products as $index => $item) {
                 $rowNumber = $index + 1;
 
-                // Execute each product inside an isolated row-level transaction
+                // Execute each product inside an isolated row-level transaction on the default database connection
                 DB::beginTransaction();
 
                 try {
@@ -311,25 +329,21 @@ class AdminBulkImportController extends Controller
                         throw new \Exception("Mandatory product fields missing or invalid price.");
                     }
 
-                    // SKU Duplicate check
+                    // SKU Duplicate check via Eloquent
                     $existingProduct = Product::where('sku', $sku)->first();
                     if ($existingProduct && !$updateExisting) {
                         $report['duplicate_sku']++;
                         throw new \Exception("Duplicate SKU '{$sku}' already exists in database.");
                     }
 
-                    // 1. Resolve or Create Category
+                    // 1. Resolve or Create Category using environment-independent Eloquent JSON query
                     $category = null;
                     if (!empty($categoryName)) {
                         $category = Category::whereNull('parent_id')
                             ->where(function ($q) use ($categoryName) {
                                 $q->where('slug', Str::slug($categoryName))
-                                  ->orWhere('name', 'like', "%{$categoryName}%");
-                                if (DB::getDriverName() === 'mysql') {
-                                    $q->orWhere(DB::raw("JSON_UNQUOTE(JSON_EXTRACT(name, '$.en'))"), 'like', "%{$categoryName}%");
-                                } else {
-                                    $q->orWhere(DB::raw("json_extract(name, '$.en')"), 'like', "%{$categoryName}%");
-                                }
+                                  ->orWhere('name', 'like', "%{$categoryName}%")
+                                  ->orWhere('name->en', 'like', "%{$categoryName}%");
                             })->first();
 
                         if (!$category) {
@@ -350,12 +364,8 @@ class AdminBulkImportController extends Controller
                         $subcategory = Category::where('parent_id', $category->id)
                             ->where(function ($q) use ($subcategoryName) {
                                 $q->where('slug', Str::slug($subcategoryName))
-                                  ->orWhere('name', 'like', "%{$subcategoryName}%");
-                                if (DB::getDriverName() === 'mysql') {
-                                    $q->orWhere(DB::raw("JSON_UNQUOTE(JSON_EXTRACT(name, '$.en'))"), 'like', "%{$subcategoryName}%");
-                                } else {
-                                    $q->orWhere(DB::raw("json_extract(name, '$.en')"), 'like', "%{$subcategoryName}%");
-                                }
+                                  ->orWhere('name', 'like', "%{$subcategoryName}%")
+                                  ->orWhere('name->en', 'like', "%{$subcategoryName}%");
                             })->first();
 
                         if (!$subcategory) {
@@ -369,7 +379,7 @@ class AdminBulkImportController extends Controller
                         }
                     }
 
-                    // 3. Resolve or Create Brand
+                    // 3. Resolve or Create Brand via Eloquent
                     $brand = null;
                     if (!empty($brandName)) {
                         $brand = Brand::where('name', 'like', "%{$brandName}%")
@@ -389,7 +399,6 @@ class AdminBulkImportController extends Controller
                     // 4. Resolve Image File
                     $imageUrl = $uploadedImagesMap[$imageFilename] ?? $this->resolveAndCopyImage($imageFilename, $categoryName);
                     if (empty($imageUrl)) {
-                        // Fallback relative storage URL
                         $imageUrl = "/storage/products/" . $imageFilename;
                     }
 
@@ -438,7 +447,7 @@ class AdminBulkImportController extends Controller
                         $product = Product::create($productData);
                     }
 
-                    // Insert Primary Image into ProductImages
+                    // Insert Primary Image into ProductImages via Eloquent
                     ProductImage::create([
                         'product_id' => $product->id,
                         'image_url' => $imageUrl,
@@ -474,9 +483,16 @@ class AdminBulkImportController extends Controller
                 }
             }
 
+            Log::info("Bulk Product Import Execution Completed", [
+                'database_connection' => $connectionName,
+                'database_name' => $databaseName,
+                'imported_count' => $report['imported_successfully'],
+                'failed_count' => count($report['failed_rows']),
+            ]);
+
             return response()->json([
                 'success' => true,
-                'message' => "Bulk import completed. Successfully imported {$report['imported_successfully']} of {$report['total_processed']} products.",
+                'message' => "Bulk import completed. Successfully imported {$report['imported_successfully']} of {$report['total_processed']} products into {$databaseName}.",
                 'report' => $report,
             ], 200);
 
