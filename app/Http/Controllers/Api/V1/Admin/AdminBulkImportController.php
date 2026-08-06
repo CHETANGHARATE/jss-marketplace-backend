@@ -403,7 +403,7 @@ class AdminBulkImportController extends Controller
                     }
 
                     // Determine Status & Active State
-                    $productStatus = in_array($statusInput, ['approved', 'published', 'active']) ? 'approved' : 'draft';
+                    $productStatus = in_array($statusInput, ['draft', 'pending', 'rejected', 'archived']) ? $statusInput : 'approved';
                     $isActive = ($productStatus === 'approved');
 
                     // Clean Slug
