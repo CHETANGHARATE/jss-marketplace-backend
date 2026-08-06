@@ -26,6 +26,9 @@ class AdminBulkImportController extends Controller
      */
     public function validateImport(Request $request): JsonResponse
     {
+        set_time_limit(300);
+        ignore_user_abort(true);
+
         try {
             $validated = $request->validate([
                 'products' => 'required|array|min:1',
@@ -255,6 +258,9 @@ class AdminBulkImportController extends Controller
      */
     public function executeImport(Request $request): JsonResponse
     {
+        set_time_limit(300);
+        ignore_user_abort(true);
+
         try {
             $validated = $request->validate([
                 'products' => 'required|array|min:1',
