@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\Admin\AdminReviewController;
 use App\Http\Controllers\Api\V1\Admin\AdminSearchController;
 use App\Http\Controllers\Api\V1\Admin\AdminShippingController;
 use App\Http\Controllers\Api\V1\Admin\AdminCustomerController;
+use App\Http\Controllers\Api\V1\Admin\AdminProductController;
 use App\Http\Controllers\Api\V1\Admin\AdminVendorController;
 use App\Http\Controllers\Api\V1\AttributeController;
 use App\Http\Controllers\Api\V1\AuthController;
@@ -314,7 +315,6 @@ Route::prefix('v1')->group(function () {
         Route::get('/products', [AdminProductController::class, 'index']);
         Route::post('/products', [AdminProductController::class, 'store']);
         Route::get('/products/pending', [AdminProductController::class, 'pending']);
-        Route::post('/products/bulk-action', [AdminProductController::class, 'bulkAction']);
         Route::get('/products/{id}', [AdminProductController::class, 'show']);
         Route::put('/products/{id}', [AdminProductController::class, 'update']);
         Route::delete('/products/{id}', [AdminProductController::class, 'destroy']);
@@ -324,8 +324,6 @@ Route::prefix('v1')->group(function () {
         Route::post('/products/{id}/unpublish', [AdminProductController::class, 'unpublish']);
         Route::post('/products/{id}/publish', [AdminProductController::class, 'publish']);
         Route::post('/products/{id}/duplicate', [AdminProductController::class, 'duplicate']);
-        Route::post('/products/{id}/archive', [AdminProductController::class, 'archive']);
-        Route::post('/products/{id}/restore', [AdminProductController::class, 'restore']);
         Route::apiResource('/attribute-templates', AttributeTemplateController::class);
 
         // Category Management
