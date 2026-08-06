@@ -26,3 +26,6 @@
 Thumbs.db
 *.log
 *.zip
+*.sqlite
+/bootstrap/cache/*.php
+!/bootstrap/cache/.gitkeep

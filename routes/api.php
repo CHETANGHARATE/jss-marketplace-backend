@@ -10,6 +10,8 @@ use App\Http\Controllers\Api\V1\Admin\AdminSearchController;
 use App\Http\Controllers\Api\V1\Admin\AdminShippingController;
 use App\Http\Controllers\Api\V1\Admin\AdminCustomerController;
 use App\Http\Controllers\Api\V1\Admin\AdminProductController;
+use App\Http\Controllers\Api\V1\Admin\AdminBulkImportController;
+use App\Http\Controllers\Api\V1\Admin\AttributeTemplateController;
 use App\Http\Controllers\Api\V1\Admin\AdminVendorController;
 use App\Http\Controllers\Api\V1\AttributeController;
 use App\Http\Controllers\Api\V1\AuthController;
@@ -314,6 +316,8 @@ Route::prefix('v1')->group(function () {
         // Admin Product Management (Modules 1-10)
         Route::get('/products', [AdminProductController::class, 'index']);
         Route::post('/products', [AdminProductController::class, 'store']);
+        Route::post('/products/import/validate', [AdminBulkImportController::class, 'validateImport']);
+        Route::post('/products/import/execute', [AdminBulkImportController::class, 'executeImport']);
         Route::get('/products/pending', [AdminProductController::class, 'pending']);
         Route::get('/products/{id}', [AdminProductController::class, 'show']);
         Route::put('/products/{id}', [AdminProductController::class, 'update']);
@@ -349,12 +353,6 @@ Route::prefix('v1')->group(function () {
 
         // Media Upload
         Route::post('/media/upload', [MediaController::class, 'upload']);
-
-        // Product Engine Admin Management
-        Route::post('/products', [ProductController::class, 'store']);
-        Route::put('/products/{id}', [ProductController::class, 'update']);
-        Route::delete('/products/{id}', [ProductController::class, 'destroy']);
-        Route::patch('/products/{id}/status', [ProductController::class, 'updateStatus']);
 
         // Warehouse Management (Module 4)
         Route::post('/warehouses', [WarehouseController::class, 'store']);
