@@ -134,36 +134,20 @@ class AdminBulkImportController extends Controller
                     }
                 }
 
-                // 4. Category & Subcategory Lookup using Environment-Independent Eloquent JSON syntax
+                // 4. Category & Subcategory Lookup with deduplication check
                 $catId = null;
                 $subcatId = null;
 
                 if (!empty($categoryName)) {
-                    $categoryObj = Category::whereNull('parent_id')
-                        ->where(function ($q) use ($categoryName) {
-                            $q->where('slug', Str::slug($categoryName))
-                              ->orWhere('name', 'like', "%{$categoryName}%")
-                              ->orWhere('name->en', 'like', "%{$categoryName}%");
-                        })->first();
-
+                    $categoryObj = $this->resolveOrCreateCategory($categoryName, null);
                     if ($categoryObj) {
                         $catId = $categoryObj->id;
                         if (!empty($subcategoryName)) {
-                            $subcatObj = Category::where('parent_id', $catId)
-                                ->where(function ($q) use ($subcategoryName) {
-                                    $q->where('slug', Str::slug($subcategoryName))
-                                      ->orWhere('name', 'like', "%{$subcategoryName}%")
-                                      ->orWhere('name->en', 'like', "%{$subcategoryName}%");
-                                })->first();
-
+                            $subcatObj = $this->resolveOrCreateCategory($subcategoryName, $catId);
                             if ($subcatObj) {
                                 $subcatId = $subcatObj->id;
-                            } else {
-                                $rowWarnings[] = "Subcategory '{$subcategoryName}' not found. Will be created automatically.";
                             }
                         }
-                    } else {
-                        $rowWarnings[] = "Category '{$categoryName}' not found. Will be created automatically during import.";
                     }
                 }
 
@@ -360,48 +344,11 @@ class AdminBulkImportController extends Controller
                         }
                     }
 
-                    // 1. Resolve or Create Category using environment-independent Eloquent JSON query
-                    $category = null;
-                    if (!empty($categoryName)) {
-                        $category = Category::whereNull('parent_id')
-                            ->where(function ($q) use ($categoryName) {
-                                $q->where('slug', Str::slug($categoryName))
-                                  ->orWhere('name', 'like', "%{$categoryName}%")
-                                  ->orWhere('name->en', 'like', "%{$categoryName}%");
-                            })->first();
+                    // 1. Resolve or Create Category with deduplication check
+                    $category = $this->resolveOrCreateCategory($categoryName, null);
 
-                        if (!$category) {
-                            $category = Category::create([
-                                'parent_id' => null,
-                                'name' => ['en' => $categoryName],
-                                'slug' => Str::slug($categoryName),
-                                'is_active' => true,
-                                'is_featured' => true,
-                                'sort_order' => 0,
-                            ]);
-                        }
-                    }
-
-                    // 2. Resolve or Create Subcategory
-                    $subcategory = null;
-                    if ($category && !empty($subcategoryName)) {
-                        $subcategory = Category::where('parent_id', $category->id)
-                            ->where(function ($q) use ($subcategoryName) {
-                                $q->where('slug', Str::slug($subcategoryName))
-                                  ->orWhere('name', 'like', "%{$subcategoryName}%")
-                                  ->orWhere('name->en', 'like', "%{$subcategoryName}%");
-                            })->first();
-
-                        if (!$subcategory) {
-                            $subcategory = Category::create([
-                                'parent_id' => $category->id,
-                                'name' => ['en' => $subcategoryName],
-                                'slug' => Str::slug($subcategoryName),
-                                'is_active' => true,
-                                'sort_order' => 0,
-                            ]);
-                        }
-                    }
+                    // 2. Resolve or Create Subcategory with deduplication check
+                    $subcategory = $category ? $this->resolveOrCreateCategory($subcategoryName, $category->id) : null;
 
                     // 3. Resolve or Create Brand via Eloquent
                     $brand = null;
@@ -580,5 +527,81 @@ class AdminBulkImportController extends Controller
 
         // Fallback relative path
         return "/storage/products/{$filename}";
+    }
+
+    /**
+     * Resolve existing category or create a new one while preventing duplicates.
+     * Matches case-insensitively, multilingual JSON names, and singular/plural variations.
+     */
+    private function resolveOrCreateCategory(?string $categoryName, ?int $parentId = null): ?Category
+    {
+        if (empty($categoryName)) {
+            return null;
+        }
+
+        $trimmedName = trim($categoryName);
+        $slug = Str::slug($trimmedName);
+
+        // Normalize string for fuzzy matching (case-insensitive replace 'and' and '&')
+        $normalizedSearch = strtolower(preg_replace('/[^a-z0-9]/i', '', str_ireplace(['and', '&'], '', $trimmedName)));
+        $stemSearch = rtrim($normalizedSearch, 's');
+
+        // Fetch all categories at this parent level (including trashed ones)
+        $query = Category::withTrashed();
+        if ($parentId === null) {
+            $query->whereNull('parent_id');
+        } else {
+            $query->where('parent_id', $parentId);
+        }
+        $candidates = $query->get();
+
+        foreach ($candidates as $cand) {
+            $candSlug = $cand->slug;
+            $candNameEn = '';
+            if (is_array($cand->name)) {
+                $candNameEn = $cand->name['en'] ?? reset($cand->name);
+            } else if (is_string($cand->name)) {
+                $decoded = json_decode($cand->name, true);
+                $candNameEn = is_array($decoded) ? ($decoded['en'] ?? reset($decoded)) : $cand->name;
+            }
+
+            // 1. Direct slug or name match
+            $matched = (strcasecmp($candSlug, $slug) === 0 || 
+                        strcasecmp($candNameEn, $trimmedName) === 0 || 
+                        Str::slug($candNameEn) === $slug);
+
+            // 2. Normalized stem match (e.g. JUICES AND SYRUPS vs juices-syrup, Pickles vs Pickle)
+            if (!$matched) {
+                $candSlugNorm = strtolower(preg_replace('/[^a-z0-9]/i', '', str_ireplace(['and', '&', '-'], '', $candSlug)));
+                $candNameNorm = strtolower(preg_replace('/[^a-z0-9]/i', '', str_ireplace(['and', '&'], '', $candNameEn)));
+
+                $stemCandSlug = rtrim($candSlugNorm, 's');
+                $stemCandName = rtrim($candNameNorm, 's');
+
+                if ($stemSearch === $stemCandSlug || 
+                    $stemSearch === $stemCandName || 
+                    (!empty($stemSearch) && !empty($stemCandName) && (str_starts_with($stemCandName, $stemSearch) || str_starts_with($stemSearch, $stemCandName)))) {
+                    $matched = true;
+                }
+            }
+
+            if ($matched) {
+                if ($cand->trashed()) {
+                    $cand->restore();
+                    $cand->update(['deleted_at' => null, 'is_active' => true]);
+                }
+                return $cand;
+            }
+        }
+
+        // 3. Only if NO matching category exists, create new category
+        return Category::create([
+            'parent_id' => $parentId,
+            'name' => ['en' => $trimmedName],
+            'slug' => $slug,
+            'is_active' => true,
+            'is_featured' => true,
+            'sort_order' => 0,
+        ]);
     }
 }
