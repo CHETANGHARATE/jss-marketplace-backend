@@ -47,7 +47,8 @@ class AdminProductController extends Controller
             $query->where('brand_id', $request->brand_id);
         }
 
-        $perPage = $request->get('per_page', 15);
+        $perPageInput = $request->get('per_page', 500);
+        $perPage = ($perPageInput === 'all' || (int)$perPageInput > 1000) ? 1000 : (int)$perPageInput;
         $products = $query->latest()->paginate($perPage);
 
         return response()->json([
@@ -67,7 +68,8 @@ class AdminProductController extends Controller
      */
     public function pending(Request $request): JsonResponse
     {
-        $perPage = $request->get('per_page', 15);
+        $perPageInput = $request->get('per_page', 500);
+        $perPage = ($perPageInput === 'all' || (int)$perPageInput > 1000) ? 1000 : (int)$perPageInput;
         $query = Product::whereIn('status', ['pending', 'pending_review', 'pending_approval'])
             ->with(['category', 'brand', 'seller', 'primaryImage', 'images', 'specifications', 'variants'])
             ->latest();
