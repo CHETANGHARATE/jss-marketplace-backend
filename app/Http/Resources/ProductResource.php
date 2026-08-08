@@ -111,7 +111,7 @@ class ProductResource extends JsonResource
     /**
      * Format image URL to guarantee full absolute HTTP(S) URL.
      */
-    private function formatImageUrl(?string $url): ?string
+    protected function formatImageUrl(?string $url): ?string
     {
         if (empty($url)) {
             return null;
