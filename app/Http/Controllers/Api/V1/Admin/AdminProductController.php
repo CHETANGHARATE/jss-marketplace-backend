@@ -307,7 +307,10 @@ class AdminProductController extends Controller
             'tax_inclusive' => 'nullable|boolean',
             'stock_quantity' => 'sometimes|integer|min:0',
             'images' => 'nullable|array',
+            'images.*' => 'nullable|string',
             'attribute_values' => 'nullable|array',
+            'specifications' => 'nullable|array',
+            'custom_specifications' => 'nullable|array',
             'variants' => 'nullable|array',
             'weight' => 'nullable|numeric',
             'length' => 'nullable|numeric',
@@ -342,21 +345,41 @@ class AdminProductController extends Controller
 
         $images = $validated['images'] ?? null;
         $attrValues = $validated['attribute_values'] ?? null;
+        $specs = $validated['specifications'] ?? $validated['custom_specifications'] ?? null;
         $variants = $validated['variants'] ?? null;
 
-        unset($validated['images'], $validated['attribute_values'], $validated['variants']);
+        unset($validated['images'], $validated['attribute_values'], $validated['specifications'], $validated['custom_specifications'], $validated['variants']);
 
         $product->update($validated);
 
         // Update images if provided
         if (is_array($images)) {
             $product->images()->delete();
-            foreach ($images as $index => $url) {
-                $product->images()->create([
-                    'image_path' => $url,
+            foreach (array_slice(array_filter($images), 0, 10) as $index => $url) {
+                $cleanUrl = $this->saveImageFromUrlOrBase64($url);
+                \App\Models\ProductImage::create([
+                    'product_id' => $product->id,
+                    'image_url' => $cleanUrl,
                     'is_primary' => ($index === 0),
                     'sort_order' => $index,
                 ]);
+            }
+        }
+
+        // Update specifications if provided
+        if (is_array($specs)) {
+            $product->specifications()->delete();
+            foreach ($specs as $sortIdx => $spec) {
+                $key = $spec['key'] ?? $spec['name'] ?? $spec['spec_key'] ?? null;
+                $value = $spec['value'] ?? $spec['spec_value'] ?? null;
+                if ($key && $value) {
+                    \App\Models\ProductSpecification::create([
+                        'product_id' => $product->id,
+                        'spec_key' => $key,
+                        'spec_value' => $value,
+                        'sort_order' => $sortIdx,
+                    ]);
+                }
             }
         }
 
@@ -385,7 +408,7 @@ class AdminProductController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Product updated successfully.',
-            'data' => new ProductResource($product->fresh(['category', 'brand', 'seller', 'images', 'variants', 'attributeValues'])),
+            'data' => new ProductResource($product->fresh(['category', 'subcategory', 'childCategory', 'brand', 'seller', 'primaryImage', 'images', 'variants', 'specifications', 'attributeValues.attribute'])),
         ], 200);
     }
 
