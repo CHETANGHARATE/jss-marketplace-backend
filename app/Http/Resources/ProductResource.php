@@ -104,6 +104,10 @@ class ProductResource extends JsonResource
             ] : null,
             'variants' => $this->relationLoaded('variants') ? $this->variants : [],
             'attribute_values' => $this->relationLoaded('attributeValues') ? $this->attributeValues : [],
+            'specifications' => $this->relationLoaded('specifications') ? $this->specifications : [],
+            'category_id' => $this->category_id,
+            'subcategory_id' => $this->subcategory_id,
+            'brand_id' => $this->brand_id,
             'created_at' => $this->created_at?->toIso8601String(),
         ];
     }
