@@ -275,8 +275,7 @@ class AdminProductController extends Controller
             'images',
             'variants',
             'specifications',
-            'attributeValues.attribute',
-            'reviews'
+            'attributeValues.attribute'
         ])->findOrFail($id);
 
         return response()->json([
