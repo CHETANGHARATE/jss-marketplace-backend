@@ -38,12 +38,16 @@ class BrandController extends Controller
     /**
      * Display details of a specific brand by slug.
      */
-    public function show(string $slug): JsonResponse
+    public function show(string $slugOrId): JsonResponse
     {
-        $brand = Brand::where('slug', $slug)
-            ->where('is_active', true)
-            ->with(['categories', 'media'])
-            ->first();
+        $query = Brand::where('is_active', true)->with(['categories', 'media']);
+
+        if (is_numeric($slugOrId)) {
+            $brand = (clone $query)->where('id', (int) $slugOrId)->first()
+                ?? $query->where('slug', $slugOrId)->first();
+        } else {
+            $brand = $query->where('slug', $slugOrId)->first();
+        }
 
         if (!$brand) {
             return response()->json([

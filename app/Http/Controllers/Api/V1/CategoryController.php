@@ -73,19 +73,24 @@ class CategoryController extends Controller
     }
 
     /**
-     * Display details of a specific category by slug.
+     * Display details of a specific category by ID or slug.
      */
-    public function show(string $slug): JsonResponse
+    public function show(string $slugOrId): JsonResponse
     {
-        $category = Category::where('slug', $slug)
-            ->where('is_active', true)
+        $query = Category::where('is_active', true)
             ->with([
                 'children' => fn($q) => $q->where('is_active', true),
                 'brands' => fn($q) => $q->where('is_active', true),
                 'attributes.values',
                 'media',
-            ])
-            ->first();
+            ]);
+
+        if (is_numeric($slugOrId)) {
+            $category = (clone $query)->where('id', (int) $slugOrId)->first()
+                ?? $query->where('slug', $slugOrId)->first();
+        } else {
+            $category = $query->where('slug', $slugOrId)->first();
+        }
 
         if (!$category) {
             return response()->json([
