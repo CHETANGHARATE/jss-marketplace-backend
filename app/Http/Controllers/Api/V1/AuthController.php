@@ -161,61 +161,6 @@ class AuthController extends Controller
     }
 
     /**
-     * Verify Signup Email OTP and activate account.
-     */
-    public function verifyEmailOtp(Request $request): JsonResponse
-    {
-        $request->validate([
-            'email' => 'required|email',
-            'otp' => 'required|string|size:6',
-        ]);
-
-        $email = strtolower($request->email);
-        $otpCode = $request->otp;
-
-        $otp = Otp::where('email', $email)
-            ->where('otp', $otpCode)
-            ->where('type', 'email_verification')
-            ->where('used', false)
-            ->where('expires_at', '>', now())
-            ->first();
-
-        if (!$otp) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid or expired verification code.',
-            ], 400);
-        }
-
-        $user = User::where('email', $email)->first();
-
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'User account not found.',
-            ], 404);
-        }
-
-        $user->email_verified_at = now();
-        $user->save();
-
-        $otp->used = true;
-        $otp->save();
-
-        $token = $user->createToken('auth_token')->plainTextToken;
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Email verified successfully. Account activated.',
-            'data' => [
-                'user' => new UserResource($user),
-                'access_token' => $token,
-                'token_type' => 'Bearer',
-            ],
-        ], 200);
-    }
-
-    /**
      * Authenticate user & issue Sanctum Bearer token.
      */
     public function login(LoginRequest $request): JsonResponse
@@ -708,28 +653,37 @@ class AuthController extends Controller
     }
 
     /**
-     * Verify Email OTP code and authenticate/register user.
+     * Verify Email OTP code for Login, Signup, or Account Activation.
      */
     public function verifyEmailOtp(Request $request): JsonResponse
     {
         $request->validate([
             'email' => 'required|email',
             'otp' => 'required|string|size:6',
-            'purpose' => 'nullable|string|in:login,signup',
+            'purpose' => 'nullable|string|in:login,signup,verification',
         ]);
 
         $email = strtolower($request->email);
         $otpCode = $request->otp;
-        $purpose = strtolower($request->purpose ?? 'login');
+        $purpose = strtolower($request->purpose ?? '');
 
+        // Primary lookup matching email, OTP code, un-used status, and active expiration
         $otpRecord = Otp::where('email', $email)
-            ->where('purpose', $purpose)
             ->where('otp', $otpCode)
             ->where('used', false)
             ->where('expires_at', '>', now())
+            ->when($purpose, function ($query, $p) {
+                return $query->where(function ($q) use ($p) {
+                    $q->where('purpose', $p)
+                      ->orWhere('type', $p)
+                      ->orWhere('type', 'email_verification')
+                      ->orWhere('type', 'email_otp');
+                });
+            })
             ->orderBy('created_at', 'desc')
             ->first();
 
+        // Fallback lookup if specific purpose flag was omitted
         if (!$otpRecord) {
             $otpRecord = Otp::where('email', $email)
                 ->where('otp', $otpCode)
@@ -747,16 +701,23 @@ class AuthController extends Controller
         }
 
         $otpRecord->update(['used' => true]);
+        $user = User::where('email', $email)->first();
 
-        // LOGIN FLOW: Authenticate existing account
-        if ($purpose === 'login') {
-            $user = User::where('email', $email)->first();
+        // FLOW A: Authenticate existing account or activate legacy password registration
+        if ($purpose === 'login' || ($user && !$purpose) || ($user && $otpRecord->type === 'email_verification')) {
             if (!$user) {
                 return response()->json([
                     'success' => false,
                     'code' => 'ACCOUNT_NOT_FOUND',
                     'message' => 'No account exists with this email address. Please sign up.',
                 ], 404);
+            }
+
+            if ($user->status === UserStatus::BANNED) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Your account has been suspended. Please contact platform support.',
+                ], 403);
             }
 
             $user->email_verified_at = now();
@@ -766,7 +727,7 @@ class AuthController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Email OTP login successful.',
+                'message' => 'Email verified successfully. Login successful.',
                 'data' => [
                     'user' => new UserResource($user),
                     'access_token' => $token,
@@ -775,10 +736,9 @@ class AuthController extends Controller
             ], 200);
         }
 
-        // SIGNUP FLOW: Create Customer user account & authenticate
-        if ($purpose === 'signup') {
-            $existingUser = User::where('email', $email)->first();
-            if ($existingUser) {
+        // FLOW B: Create new Customer account via Email OTP Signup
+        if ($purpose === 'signup' || (!$user && $purpose !== 'login')) {
+            if ($user) {
                 return response()->json([
                     'success' => false,
                     'code' => 'EMAIL_ALREADY_REGISTERED',
@@ -788,7 +748,7 @@ class AuthController extends Controller
 
             $name = trim($request->name ?? ('User ' . explode('@', $email)[0]));
 
-            $user = User::create([
+            $newUser = User::create([
                 'name' => $name,
                 'email' => $email,
                 'password' => Hash::make(Str::random(16)),
@@ -797,14 +757,14 @@ class AuthController extends Controller
                 'email_verified_at' => now(),
             ]);
 
-            $user->assignRoleSafely(UserRole::CUSTOMER->value);
-            $token = $user->createToken('auth_token')->plainTextToken;
+            $newUser->assignRoleSafely(UserRole::CUSTOMER->value);
+            $token = $newUser->createToken('auth_token')->plainTextToken;
 
             return response()->json([
                 'success' => true,
                 'message' => 'Account created successfully via Email OTP.',
                 'data' => [
-                    'user' => new UserResource($user),
+                    'user' => new UserResource($newUser),
                     'access_token' => $token,
                     'token_type' => 'Bearer',
                 ],
