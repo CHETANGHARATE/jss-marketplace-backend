@@ -139,15 +139,19 @@ class AdminBulkImportController extends Controller
                 $subcatId = null;
 
                 if (!empty($categoryName)) {
-                    $categoryObj = $this->resolveOrCreateCategory($categoryName, null);
+                    $categoryObj = $this->resolveOrCreateCategory($categoryName, null, false);
                     if ($categoryObj) {
                         $catId = $categoryObj->id;
                         if (!empty($subcategoryName)) {
-                            $subcatObj = $this->resolveOrCreateCategory($subcategoryName, $catId);
+                            $subcatObj = $this->resolveOrCreateCategory($subcategoryName, $catId, false);
                             if ($subcatObj) {
                                 $subcatId = $subcatObj->id;
+                            } else {
+                                $rowWarnings[] = "Subcategory '{$subcategoryName}' will be created automatically during import.";
                             }
                         }
+                    } else {
+                        $rowWarnings[] = "Category '{$categoryName}' will be created automatically during import.";
                     }
                 }
 
@@ -533,7 +537,7 @@ class AdminBulkImportController extends Controller
      * Resolve existing category or create a new one while preventing duplicates.
      * Matches case-insensitively, multilingual JSON names, and singular/plural variations.
      */
-    private function resolveOrCreateCategory(?string $categoryName, ?int $parentId = null): ?Category
+    private function resolveOrCreateCategory(?string $categoryName, ?int $parentId = null, bool $createIfNotFound = true): ?Category
     {
         if (empty($categoryName)) {
             return null;
@@ -546,59 +550,82 @@ class AdminBulkImportController extends Controller
         $normalizedSearch = strtolower(preg_replace('/[^a-z0-9]/i', '', str_ireplace(['and', '&'], '', $trimmedName)));
         $stemSearch = rtrim($normalizedSearch, 's');
 
-        // Fetch all categories at this parent level (including trashed ones)
+        // Helper to search a collection of candidates
+        $matchCandidate = function ($candidates) use ($slug, $trimmedName, $stemSearch) {
+            foreach ($candidates as $cand) {
+                $candSlug = $cand->slug;
+                $candNameEn = '';
+                if (is_array($cand->name)) {
+                    $candNameEn = $cand->name['en'] ?? reset($cand->name);
+                } else if (is_string($cand->name)) {
+                    $decoded = json_decode($cand->name, true);
+                    $candNameEn = is_array($decoded) ? ($decoded['en'] ?? reset($decoded)) : $cand->name;
+                }
+
+                // 1. Direct slug or name match
+                $matched = (strcasecmp($candSlug, $slug) === 0 || 
+                            strcasecmp($candNameEn, $trimmedName) === 0 || 
+                            Str::slug($candNameEn) === $slug);
+
+                // 2. Normalized stem match (e.g. JUICES AND SYRUPS vs juices-syrup, Pickles vs Pickle)
+                if (!$matched) {
+                    $candSlugNorm = strtolower(preg_replace('/[^a-z0-9]/i', '', str_ireplace(['and', '&', '-'], '', $candSlug)));
+                    $candNameNorm = strtolower(preg_replace('/[^a-z0-9]/i', '', str_ireplace(['and', '&'], '', $candNameEn)));
+
+                    $stemCandSlug = rtrim($candSlugNorm, 's');
+                    $stemCandName = rtrim($candNameNorm, 's');
+
+                    if ($stemSearch === $stemCandSlug || 
+                        $stemSearch === $stemCandName || 
+                        (!empty($stemSearch) && !empty($stemCandName) && (str_starts_with($stemCandName, $stemSearch) || str_starts_with($stemSearch, $stemCandName)))) {
+                        $matched = true;
+                    }
+                }
+
+                if ($matched) {
+                    if ($cand->trashed()) {
+                        $cand->restore();
+                        $cand->update(['deleted_at' => null, 'is_active' => true]);
+                    }
+                    return $cand;
+                }
+            }
+            return null;
+        };
+
+        // 1. Fetch categories at this parent level
         $query = Category::withTrashed();
         if ($parentId === null) {
             $query->whereNull('parent_id');
         } else {
             $query->where('parent_id', $parentId);
         }
-        $candidates = $query->get();
-
-        foreach ($candidates as $cand) {
-            $candSlug = $cand->slug;
-            $candNameEn = '';
-            if (is_array($cand->name)) {
-                $candNameEn = $cand->name['en'] ?? reset($cand->name);
-            } else if (is_string($cand->name)) {
-                $decoded = json_decode($cand->name, true);
-                $candNameEn = is_array($decoded) ? ($decoded['en'] ?? reset($decoded)) : $cand->name;
-            }
-
-            // 1. Direct slug or name match
-            $matched = (strcasecmp($candSlug, $slug) === 0 || 
-                        strcasecmp($candNameEn, $trimmedName) === 0 || 
-                        Str::slug($candNameEn) === $slug);
-
-            // 2. Normalized stem match (e.g. JUICES AND SYRUPS vs juices-syrup, Pickles vs Pickle)
-            if (!$matched) {
-                $candSlugNorm = strtolower(preg_replace('/[^a-z0-9]/i', '', str_ireplace(['and', '&', '-'], '', $candSlug)));
-                $candNameNorm = strtolower(preg_replace('/[^a-z0-9]/i', '', str_ireplace(['and', '&'], '', $candNameEn)));
-
-                $stemCandSlug = rtrim($candSlugNorm, 's');
-                $stemCandName = rtrim($candNameNorm, 's');
-
-                if ($stemSearch === $stemCandSlug || 
-                    $stemSearch === $stemCandName || 
-                    (!empty($stemSearch) && !empty($stemCandName) && (str_starts_with($stemCandName, $stemSearch) || str_starts_with($stemSearch, $stemCandName)))) {
-                    $matched = true;
-                }
-            }
-
-            if ($matched) {
-                if ($cand->trashed()) {
-                    $cand->restore();
-                    $cand->update(['deleted_at' => null, 'is_active' => true]);
-                }
-                return $cand;
-            }
+        $candMatch = $matchCandidate($query->get());
+        if ($candMatch) {
+            return $candMatch;
         }
 
-        // 3. Only if NO matching category exists, create new category
+        // 2. Fallback: Search all categories globally to prevent duplicate slug constraint violations
+        $globalMatch = $matchCandidate(Category::withTrashed()->get());
+        if ($globalMatch) {
+            return $globalMatch;
+        }
+
+        // 3. If dry-run (validation), return null without creating
+        if (!$createIfNotFound) {
+            return null;
+        }
+
+        // 4. Ensure slug is globally unique before insertion
+        $finalSlug = $slug;
+        if (Category::withTrashed()->where('slug', $finalSlug)->exists()) {
+            $finalSlug = $slug . '-' . ($parentId ? $parentId : strtolower(Str::random(4)));
+        }
+
         return Category::create([
             'parent_id' => $parentId,
             'name' => ['en' => $trimmedName],
-            'slug' => $slug,
+            'slug' => $finalSlug,
             'is_active' => true,
             'is_featured' => true,
             'sort_order' => 0,
