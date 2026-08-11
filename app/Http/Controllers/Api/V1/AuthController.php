@@ -25,6 +25,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Password;
+use App\Services\Msg91Service;
 use Illuminate\Support\Str;
 
 class AuthController extends Controller
@@ -371,38 +372,265 @@ class AuthController extends Controller
     }
 
     /**
-     * Verify OTP code.
+     * Send Mobile OTP using MSG91 v5 API.
      */
-    public function verifyOtp(Request $request): JsonResponse
+    public function sendOtp(Request $request): JsonResponse
     {
         $request->validate([
-            'email' => 'required|email',
-            'otp' => 'required|string|size:6',
-            'type' => 'nullable|string|in:password_reset,email_verification',
+            'mobile' => 'required_without:phone|nullable|string',
+            'phone' => 'required_without:mobile|nullable|string',
+            'purpose' => 'required|string|in:login,signup',
         ]);
 
-        $email = strtolower($request->email);
-        $otpCode = $request->otp;
-        $type = $request->type ?? 'password_reset';
+        $rawMobile = $request->mobile ?? $request->phone;
+        $purpose = strtolower($request->purpose);
+        $normalizedMobile = Msg91Service::normalizeMobile($rawMobile);
 
-        $otp = Otp::where('email', $email)
-            ->where('otp', $otpCode)
-            ->where('type', $type)
-            ->where('used', false)
-            ->where('expires_at', '>', now())
-            ->first();
-
-        if (!$otp) {
+        $digits = preg_replace('/[^\d]/', '', $normalizedMobile);
+        if (strlen($digits) < 10) {
             return response()->json([
                 'success' => false,
-                'message' => 'Invalid or expired verification code.',
-            ], 400);
+                'message' => 'Please enter a valid 10-digit Indian mobile number.',
+            ], 422);
         }
+
+        // PURPOSE = LOGIN Check: Existing Account Required
+        if ($purpose === 'login') {
+            $user = User::where('phone', $normalizedMobile)
+                ->orWhere('phone', ltrim($normalizedMobile, '+'))
+                ->orWhere('phone', substr($digits, -10))
+                ->first();
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'code' => 'ACCOUNT_NOT_FOUND',
+                    'message' => 'No account exists with this mobile number. Please sign up.',
+                ], 404);
+            }
+
+            if ($user->status === UserStatus::BANNED) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Your account has been suspended. Please contact platform support.',
+                ], 403);
+            }
+        }
+
+        // PURPOSE = SIGNUP Check: Unregistered Mobile Required
+        if ($purpose === 'signup') {
+            $existingUser = User::where('phone', $normalizedMobile)
+                ->orWhere('phone', ltrim($normalizedMobile, '+'))
+                ->orWhere('phone', substr($digits, -10))
+                ->first();
+
+            if ($existingUser) {
+                return response()->json([
+                    'success' => false,
+                    'code' => 'MOBILE_ALREADY_REGISTERED',
+                    'message' => 'This mobile number is already registered. Please login using OTP.',
+                ], 422);
+            }
+        }
+
+        // Call MSG91 Service to send OTP
+        $msg91 = new Msg91Service();
+        $result = $msg91->sendOtp($normalizedMobile);
+
+        if (!$result['success']) {
+            return response()->json([
+                'success' => false,
+                'message' => $result['message'],
+            ], 500);
+        }
+
+        $reqId = $result['request_id'];
+
+        // Store OTP transaction state locally for rate limiting and transaction tracking
+        Otp::where('phone', $normalizedMobile)->where('purpose', $purpose)->update(['used' => true]);
+        Otp::create([
+            'phone' => $normalizedMobile,
+            'purpose' => $purpose,
+            'type' => 'mobile_otp',
+            'otp' => '000000',
+            'req_id' => $reqId,
+            'attempts' => 0,
+            'used' => false,
+            'expires_at' => now()->addMinutes(5),
+        ]);
 
         return response()->json([
             'success' => true,
-            'message' => 'Verification code verified successfully.',
+            'transaction_id' => $reqId,
+            'req_id' => $reqId,
+            'message' => 'OTP sent successfully to ' . $normalizedMobile,
         ], 200);
+    }
+
+    /**
+     * Verify Mobile or Email OTP code.
+     */
+    public function verifyOtp(Request $request): JsonResponse
+    {
+        $rawMobile = $request->mobile ?? $request->phone;
+
+        // Fallback for Legacy Email Verification OTP if no mobile is passed
+        if (!$rawMobile && $request->has('email') && !$request->has('purpose')) {
+            $request->validate([
+                'email' => 'required|email',
+                'otp' => 'required|string|size:6',
+                'type' => 'nullable|string|in:password_reset,email_verification',
+            ]);
+
+            $email = strtolower($request->email);
+            $otpCode = $request->otp;
+            $type = $request->type ?? 'password_reset';
+
+            $otp = Otp::where('email', $email)
+                ->where('otp', $otpCode)
+                ->where('type', $type)
+                ->where('used', false)
+                ->where('expires_at', '>', now())
+                ->first();
+
+            if (!$otp) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid or expired verification code.',
+                ], 400);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Verification code verified successfully.',
+            ], 200);
+        }
+
+        $request->validate([
+            'otp' => 'required|string|size:6',
+            'purpose' => 'required|string|in:login,signup',
+        ]);
+
+        $purpose = strtolower($request->purpose);
+        $normalizedMobile = Msg91Service::normalizeMobile($rawMobile);
+        $reqId = $request->req_id ?? $request->transaction_id ?? $request->requestId;
+        $otpCode = $request->otp;
+
+        // Validate local OTP transaction state
+        $otpTx = Otp::where('phone', $normalizedMobile)
+            ->where('purpose', $purpose)
+            ->where('used', false)
+            ->where('expires_at', '>', now())
+            ->orderBy('created_at', 'desc')
+            ->first();
+
+        if (!$otpTx) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Your OTP has expired or transaction is invalid. Please request a new OTP.',
+            ], 400);
+        }
+
+        if ($otpTx->attempts >= 5) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Too many verification attempts. Please request a new OTP.',
+            ], 429);
+        }
+
+        // Call MSG91 Service as sole verification authority
+        $msg91 = new Msg91Service();
+        $verifyResult = $msg91->verifyOtp($normalizedMobile, $otpCode, $reqId ?: $otpTx->req_id);
+
+        if (!$verifyResult['success']) {
+            $otpTx->increment('attempts');
+            return response()->json([
+                'success' => false,
+                'message' => $verifyResult['message'],
+            ], 400);
+        }
+
+        // MSG91 Verified Successfully -> Mark transaction used
+        $otpTx->update(['used' => true]);
+        $digits = preg_replace('/[^\d]/', '', $normalizedMobile);
+
+        // LOGIN FLOW: Authenticate existing account
+        if ($purpose === 'login') {
+            $user = User::where('phone', $normalizedMobile)
+                ->orWhere('phone', ltrim($normalizedMobile, '+'))
+                ->orWhere('phone', substr($digits, -10))
+                ->first();
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'code' => 'ACCOUNT_NOT_FOUND',
+                    'message' => 'No account exists with this mobile number. Please sign up.',
+                ], 404);
+            }
+
+            $user->phone_verified_at = now();
+            $user->save();
+
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            return response()->json([
+                'success' => true,
+                'message' => 'OTP login successful.',
+                'data' => [
+                    'user' => new UserResource($user),
+                    'access_token' => $token,
+                    'token_type' => 'Bearer',
+                ],
+            ], 200);
+        }
+
+        // SIGNUP FLOW: Create Customer user account & authenticate
+        if ($purpose === 'signup') {
+            $existingUser = User::where('phone', $normalizedMobile)
+                ->orWhere('phone', ltrim($normalizedMobile, '+'))
+                ->orWhere('phone', substr($digits, -10))
+                ->first();
+
+            if ($existingUser) {
+                return response()->json([
+                    'success' => false,
+                    'code' => 'MOBILE_ALREADY_REGISTERED',
+                    'message' => 'This mobile number is already registered. Please login using OTP.',
+                ], 422);
+            }
+
+            $name = trim($request->name ?? ('Customer ' . substr($digits, -4)));
+            $email = strtolower($request->email ?? ('customer_' . substr($digits, -6) . '@jssmarketplace.local'));
+
+            $user = User::create([
+                'name' => $name,
+                'email' => $email,
+                'phone' => $normalizedMobile,
+                'password' => Hash::make(Str::random(16)),
+                'role' => UserRole::CUSTOMER,
+                'status' => UserStatus::ACTIVE,
+                'phone_verified_at' => now(),
+            ]);
+
+            $user->assignRoleSafely(UserRole::CUSTOMER->value);
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Account created successfully via Mobile OTP.',
+                'data' => [
+                    'user' => new UserResource($user),
+                    'access_token' => $token,
+                    'token_type' => 'Bearer',
+                ],
+            ], 201);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Invalid transaction purpose.',
+        ], 400);
     }
 
     /**
@@ -471,45 +699,100 @@ class AuthController extends Controller
     }
 
     /**
-     * Resend OTP code.
+     * Resend Mobile or Email OTP code.
      */
     public function resendOtp(Request $request): JsonResponse
     {
+        $rawMobile = $request->mobile ?? $request->phone;
+
+        if (!$rawMobile && $request->has('email')) {
+            $request->validate([
+                'email' => 'required|email',
+                'type' => 'nullable|string|in:password_reset,email_verification',
+            ]);
+
+            $email = strtolower($request->email);
+            $type = $request->type ?? 'email_verification';
+
+            $otpCode = sprintf('%06d', mt_rand(100000, 999999));
+            Otp::where('email', $email)->where('type', $type)->update(['used' => true]);
+            Otp::create([
+                'email' => $email,
+                'otp' => $otpCode,
+                'type' => $type,
+                'expires_at' => now()->addMinutes(10),
+            ]);
+
+            try {
+                $this->dispatchOtpMail('ResendOtp', $email, $otpCode, $type);
+            } catch (\Throwable $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to resend verification email via SMTP: ' . $e->getMessage(),
+                ], 500);
+            }
+
+            $responseData = ['email' => $email];
+            if (app()->environment('local')) {
+                $responseData['demo_otp'] = $otpCode;
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'A new 6-digit verification code has been sent to your email.',
+                'data' => $responseData,
+            ], 200);
+        }
+
         $request->validate([
-            'email' => 'required|email',
-            'type' => 'nullable|string|in:password_reset,email_verification',
+            'purpose' => 'nullable|string|in:login,signup',
         ]);
 
-        $email = strtolower($request->email);
-        $type = $request->type ?? 'email_verification';
+        $purpose = strtolower($request->purpose ?? 'login');
+        $normalizedMobile = Msg91Service::normalizeMobile($rawMobile);
 
-        $otpCode = sprintf('%06d', mt_rand(100000, 999999));
-        Otp::where('email', $email)->where('type', $type)->update(['used' => true]);
-        Otp::create([
-            'email' => $email,
-            'otp' => $otpCode,
-            'type' => $type,
-            'expires_at' => now()->addMinutes(10),
-        ]);
+        $latestTx = Otp::where('phone', $normalizedMobile)
+            ->where('purpose', $purpose)
+            ->orderBy('created_at', 'desc')
+            ->first();
 
-        try {
-            $this->dispatchOtpMail('ResendOtp', $email, $otpCode, $type);
-        } catch (\Throwable $e) {
+        // Enforce 30 second resend cooldown
+        if ($latestTx && $latestTx->created_at->gt(now()->subSeconds(30))) {
+            $waitSeconds = 30 - now()->diffInSeconds($latestTx->created_at);
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to resend verification email via SMTP: ' . $e->getMessage(),
+                'message' => "Please wait {$waitSeconds} seconds before requesting another OTP.",
+            ], 429);
+        }
+
+        $msg91 = new Msg91Service();
+        $result = $msg91->resendOtp($normalizedMobile, $latestTx?->req_id);
+
+        if (!$result['success']) {
+            return response()->json([
+                'success' => false,
+                'message' => $result['message'],
             ], 500);
         }
 
-        $responseData = ['email' => $email];
-        if (app()->environment('local')) {
-            $responseData['demo_otp'] = $otpCode;
-        }
+        $newReqId = $result['request_id'] ?? $latestTx?->req_id;
+
+        Otp::create([
+            'phone' => $normalizedMobile,
+            'purpose' => $purpose,
+            'type' => 'mobile_otp',
+            'otp' => '000000',
+            'req_id' => $newReqId,
+            'attempts' => 0,
+            'used' => false,
+            'expires_at' => now()->addMinutes(5),
+        ]);
 
         return response()->json([
             'success' => true,
-            'message' => 'A new 6-digit verification code has been sent to your email.',
-            'data' => $responseData,
+            'transaction_id' => $newReqId,
+            'req_id' => $newReqId,
+            'message' => 'A new OTP code has been sent via SMS.',
         ], 200);
     }
 
