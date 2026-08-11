@@ -634,6 +634,190 @@ class AuthController extends Controller
     }
 
     /**
+     * Send Email OTP for Login or Signup.
+     */
+    public function sendEmailOtp(Request $request): JsonResponse
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'purpose' => 'required|string|in:login,signup',
+        ]);
+
+        $email = strtolower($request->email);
+        $purpose = strtolower($request->purpose);
+
+        // PURPOSE = LOGIN Check: Existing Account Required
+        if ($purpose === 'login') {
+            $user = User::where('email', $email)->first();
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'code' => 'ACCOUNT_NOT_FOUND',
+                    'message' => 'No account exists with this email address. Please sign up.',
+                ], 404);
+            }
+
+            if ($user->status === UserStatus::BANNED) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Your account has been suspended. Please contact platform support.',
+                ], 403);
+            }
+        }
+
+        // PURPOSE = SIGNUP Check: Unregistered Email Required
+        if ($purpose === 'signup') {
+            $existingUser = User::where('email', $email)->first();
+            if ($existingUser) {
+                return response()->json([
+                    'success' => false,
+                    'code' => 'EMAIL_ALREADY_REGISTERED',
+                    'message' => 'This email is already registered. Please login instead.',
+                ], 422);
+            }
+        }
+
+        $otpCode = sprintf('%06d', mt_rand(100000, 999999));
+        Otp::where('email', $email)->where('purpose', $purpose)->update(['used' => true]);
+        Otp::create([
+            'email' => $email,
+            'otp' => $otpCode,
+            'type' => 'email_otp',
+            'purpose' => $purpose,
+            'attempts' => 0,
+            'used' => false,
+            'expires_at' => now()->addMinutes(10),
+        ]);
+
+        try {
+            $this->dispatchOtpMail('SendEmailOtp', $email, $otpCode, 'email_otp');
+        } catch (\Throwable $e) {
+            Log::warning("EMAIL_OTP_DELIVERY_NOTICE: SMTP error: " . $e->getMessage());
+        }
+
+        $responseData = ['email' => $email];
+        if (app()->environment('local') || config('app.debug')) {
+            $responseData['demo_otp'] = $otpCode;
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'A 6-digit verification code has been sent to ' . $email,
+            'data' => $responseData,
+        ], 200);
+    }
+
+    /**
+     * Verify Email OTP code and authenticate/register user.
+     */
+    public function verifyEmailOtp(Request $request): JsonResponse
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'otp' => 'required|string|size:6',
+            'purpose' => 'nullable|string|in:login,signup',
+        ]);
+
+        $email = strtolower($request->email);
+        $otpCode = $request->otp;
+        $purpose = strtolower($request->purpose ?? 'login');
+
+        $otpRecord = Otp::where('email', $email)
+            ->where('purpose', $purpose)
+            ->where('otp', $otpCode)
+            ->where('used', false)
+            ->where('expires_at', '>', now())
+            ->orderBy('created_at', 'desc')
+            ->first();
+
+        if (!$otpRecord) {
+            $otpRecord = Otp::where('email', $email)
+                ->where('otp', $otpCode)
+                ->where('used', false)
+                ->where('expires_at', '>', now())
+                ->orderBy('created_at', 'desc')
+                ->first();
+        }
+
+        if (!$otpRecord) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Incorrect OTP or code has expired. Please check and try again.',
+            ], 400);
+        }
+
+        $otpRecord->update(['used' => true]);
+
+        // LOGIN FLOW: Authenticate existing account
+        if ($purpose === 'login') {
+            $user = User::where('email', $email)->first();
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'code' => 'ACCOUNT_NOT_FOUND',
+                    'message' => 'No account exists with this email address. Please sign up.',
+                ], 404);
+            }
+
+            $user->email_verified_at = now();
+            $user->save();
+
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Email OTP login successful.',
+                'data' => [
+                    'user' => new UserResource($user),
+                    'access_token' => $token,
+                    'token_type' => 'Bearer',
+                ],
+            ], 200);
+        }
+
+        // SIGNUP FLOW: Create Customer user account & authenticate
+        if ($purpose === 'signup') {
+            $existingUser = User::where('email', $email)->first();
+            if ($existingUser) {
+                return response()->json([
+                    'success' => false,
+                    'code' => 'EMAIL_ALREADY_REGISTERED',
+                    'message' => 'This email is already registered. Please login instead.',
+                ], 422);
+            }
+
+            $name = trim($request->name ?? ('User ' . explode('@', $email)[0]));
+
+            $user = User::create([
+                'name' => $name,
+                'email' => $email,
+                'password' => Hash::make(Str::random(16)),
+                'role' => UserRole::CUSTOMER,
+                'status' => UserStatus::ACTIVE,
+                'email_verified_at' => now(),
+            ]);
+
+            $user->assignRoleSafely(UserRole::CUSTOMER->value);
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Account created successfully via Email OTP.',
+                'data' => [
+                    'user' => new UserResource($user),
+                    'access_token' => $token,
+                    'token_type' => 'Bearer',
+                ],
+            ], 201);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Verification code verified successfully.',
+        ], 200);
+    }
+
+    /**
      * Reset password using OTP code.
      */
     public function resetPassword(ResetPasswordRequest $request): JsonResponse

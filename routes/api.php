@@ -145,6 +145,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/register', [AuthController::class, 'register']);
             Route::post('/login', [AuthController::class, 'login']);
             Route::post('/send-otp', [AuthController::class, 'sendOtp']);
+            Route::post('/send-email-otp', [AuthController::class, 'sendEmailOtp']);
             Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
             Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
             Route::post('/reset-password', [AuthController::class, 'resetPassword']);
