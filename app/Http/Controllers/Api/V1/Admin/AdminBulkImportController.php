@@ -371,11 +371,9 @@ class AdminBulkImportController extends Controller
                         }
                     }
 
-                    // 4. Resolve Image File
-                    $imageUrl = $uploadedImagesMap[$imageFilename] ?? $this->resolveAndCopyImage($imageFilename, $categoryName);
-                    if (empty($imageUrl)) {
-                        $imageUrl = "/storage/products/" . $imageFilename;
-                    }
+                    // 4. Resolve & Save Image File
+                    $rawUploaded = $uploadedImagesMap[$imageFilename] ?? null;
+                    $imageUrl = $this->processImagePayload($rawUploaded, $imageFilename, $categoryName);
 
                     // Determine Status & Active State for Super Admin Import (auto-approved and live)
                     $productStatus = 'approved';
@@ -503,6 +501,33 @@ class AdminBulkImportController extends Controller
     }
 
     /**
+     * Process uploaded image payload (Base64 Data URL, relative URL, or local copy).
+     */
+    private function processImagePayload(?string $uploadedVal, string $imageFilename, string $categoryName): string
+    {
+        if (!empty($uploadedVal)) {
+            if (str_starts_with($uploadedVal, 'data:image/')) {
+                try {
+                    $base64Data = preg_replace('/^data:image\/\w+;base64,/', '', $uploadedVal);
+                    $imageData = base64_decode($base64Data);
+                    if ($imageData !== false) {
+                        Storage::disk('public')->put("products/{$imageFilename}", $imageData);
+                        return Storage::disk('public')->url("products/{$imageFilename}");
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning("Failed to save base64 image '{$imageFilename}': " . $e->getMessage());
+                }
+                // Return data URL as fallback so image always displays
+                return $uploadedVal;
+            } else if (filter_var($uploadedVal, FILTER_VALIDATE_URL) || str_starts_with($uploadedVal, '/')) {
+                return $uploadedVal;
+            }
+        }
+
+        return $this->resolveAndCopyImage($imageFilename, $categoryName) ?? "/storage/products/{$imageFilename}";
+    }
+
+    /**
      * Locate local image file on PC or storage, copy to storage/app/public/products, and return public URL.
      */
     private function resolveAndCopyImage(string $filename, string $categoryName): ?string
@@ -515,6 +540,8 @@ class AdminBulkImportController extends Controller
 
         // 2. Check local PC source folders
         $localPaths = [
+            "D:\\Bright Touch Technologigs\\Website Client\\JayDeep\\Products pic\\Astro Stone\\{$filename}",
+            "D:\\Bright Touch Technologigs\\Website Client\\JayDeep\\Products pic\\Masale\\{$filename}",
             "D:\\Bright Touch Technologigs\\Website Client\\JayDeep\\Products pic\\Juices & Syrup\\{$filename}",
             "D:\\Bright Touch Technologigs\\Website Client\\JayDeep\\Products pic\\Pickle\\{$filename}",
             public_path("storage/products/{$filename}"),
