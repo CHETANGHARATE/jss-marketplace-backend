@@ -563,6 +563,7 @@ class AdminBulkImportController extends Controller
     /**
      * Resolve existing category or create a new one while preventing duplicates.
      * Matches case-insensitively, multilingual JSON names, and singular/plural variations.
+     * Correctly scopes subcategories to their parent_id.
      */
     private function resolveOrCreateCategory(?string $categoryName, ?int $parentId = null, bool $createIfNotFound = true): ?Category
     {
@@ -620,7 +621,7 @@ class AdminBulkImportController extends Controller
             return null;
         };
 
-        // 1. Fetch categories at this parent level
+        // 1. Search categories specifically under this parent_id level
         $query = Category::withTrashed();
         if ($parentId === null) {
             $query->whereNull('parent_id');
@@ -632,18 +633,39 @@ class AdminBulkImportController extends Controller
             return $candMatch;
         }
 
-        // 2. Fallback: Search all categories globally to prevent duplicate slug constraint violations
-        $globalMatch = $matchCandidate(Category::withTrashed()->get());
-        if ($globalMatch) {
-            return $globalMatch;
+        // 2. Fallback for subcategories: if matching category exists elsewhere with 0 products, adopt it under parent_id
+        if ($parentId !== null) {
+            $orphanMatch = $matchCandidate(Category::withTrashed()->where('parent_id', '!=', $parentId)->orWhereNull('parent_id')->get());
+            if ($orphanMatch) {
+                $hasProducts = Product::where('category_id', $orphanMatch->id)
+                    ->orWhere('subcategory_id', $orphanMatch->id)
+                    ->exists();
+
+                if (!$hasProducts) {
+                    $orphanMatch->update([
+                        'parent_id' => $parentId,
+                        'is_active' => true,
+                        'deleted_at' => null
+                    ]);
+                    return $orphanMatch;
+                }
+            }
         }
 
-        // 3. If dry-run (validation), return null without creating
+        // 3. Fallback for parent categories (when $parentId is null): match globally among top-level parents
+        if ($parentId === null) {
+            $globalParentMatch = $matchCandidate(Category::withTrashed()->whereNull('parent_id')->get());
+            if ($globalParentMatch) {
+                return $globalParentMatch;
+            }
+        }
+
+        // 4. If dry-run (validation), return null without creating
         if (!$createIfNotFound) {
             return null;
         }
 
-        // 4. Ensure slug is globally unique before insertion
+        // 5. Ensure slug is globally unique before insertion
         $finalSlug = $slug;
         if (Category::withTrashed()->where('slug', $finalSlug)->exists()) {
             $finalSlug = $slug . '-' . ($parentId ? $parentId : strtolower(Str::random(4)));
