@@ -300,6 +300,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/products/{id}/submit', [VendorStoreController::class, 'submitProductForReview']);
             Route::post('/products/{id}/duplicate', [VendorStoreController::class, 'duplicateProduct']);
             Route::delete('/products/{id}', [VendorStoreController::class, 'destroyProduct']);
+            Route::post('/subcategories', [SubcategoryController::class, 'storeVendorSubcategory']);
             Route::get('/inventory', [VendorStoreController::class, 'inventory']);
             Route::post('/inventory/update', [VendorStoreController::class, 'updateInventory']);
             Route::get('/orders', [VendorStoreController::class, 'orders']);

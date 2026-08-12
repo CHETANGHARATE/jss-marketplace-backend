@@ -571,6 +571,12 @@ class AdminBulkImportController extends Controller
             return null;
         }
 
+        // If parent_id is provided, use the dedicated SubcategoryResolverService
+        if ($parentId !== null) {
+            $resolver = app(\App\Services\SubcategoryResolverService::class);
+            return $resolver->resolveOrCreateSubcategory($parentId, $categoryName, null, $createIfNotFound);
+        }
+
         $trimmedName = trim($categoryName);
         $slug = Str::slug($trimmedName);
 

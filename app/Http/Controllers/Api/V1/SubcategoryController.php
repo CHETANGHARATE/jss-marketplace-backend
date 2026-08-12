@@ -84,38 +84,91 @@ class SubcategoryController extends Controller
     /**
      * Store a newly created subcategory (Admin only).
      */
-    public function store(StoreCategoryRequest $request): JsonResponse
+    public function store(Request $request, \App\Services\SubcategoryResolverService $resolver): JsonResponse
     {
-        $validated = $request->validated();
+        $parentId = (int) ($request->input('parent_id') ?? $request->input('category_id'));
+        $name = trim((string) ($request->input('name') ?? $request->input('name.en') ?? ''));
+        $description = $request->input('description') ?? $request->input('description.en');
 
-        if (empty($validated['parent_id'])) {
+        if (!$parentId) {
             return response()->json([
                 'success' => false,
-                'message' => 'parent_id is required for creating a subcategory.',
+                'message' => 'parent_id (Parent Category) is required for creating a subcategory.',
             ], 422);
         }
 
-        $brandIds = $validated['brand_ids'] ?? [];
-        $attributeIds = $validated['attribute_ids'] ?? [];
-
-        unset($validated['brand_ids'], $validated['attribute_ids']);
-
-        $subcategory = Category::create($validated);
-
-        if (!empty($brandIds)) {
-            $subcategory->brands()->sync($brandIds);
+        if (empty($name)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Subcategory name is required.',
+            ], 422);
         }
 
-        if (!empty($attributeIds)) {
-            $subcategory->attributes()->sync($attributeIds);
+        $parent = Category::withTrashed()->find($parentId);
+        if (!$parent) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Selected parent category does not exist.',
+            ], 404);
         }
 
-        Cache::flush();
+        $subcategory = $resolver->resolveOrCreateSubcategory(
+            $parentId,
+            $name,
+            is_string($description) ? $description : null,
+            true
+        );
 
         return response()->json([
             'success' => true,
             'message' => 'Subcategory created successfully.',
-            'data' => new CategoryResource($subcategory->fresh(['parent', 'brands', 'attributes'])),
+            'data' => new CategoryResource($subcategory->fresh(['parent'])),
+        ], 201);
+    }
+
+    /**
+     * Store a subcategory requested/created by Vendor under an existing parent category.
+     * Vendors can ONLY create subcategories under existing parent categories.
+     */
+    public function storeVendorSubcategory(Request $request, \App\Services\SubcategoryResolverService $resolver): JsonResponse
+    {
+        $parentId = (int) ($request->input('parent_id') ?? $request->input('category_id'));
+        $name = trim((string) ($request->input('name') ?? $request->input('name.en') ?? ''));
+        $description = $request->input('description') ?? $request->input('description.en');
+
+        if (!$parentId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Parent Category selection is required to create a subcategory.',
+            ], 422);
+        }
+
+        if (empty($name)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Subcategory name is required.',
+            ], 422);
+        }
+
+        $parent = Category::whereNull('parent_id')->where('is_active', true)->find($parentId);
+        if (!$parent) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid parent category selection.',
+            ], 422);
+        }
+
+        $subcategory = $resolver->resolveOrCreateSubcategory(
+            $parentId,
+            $name,
+            is_string($description) ? $description : null,
+            true
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Subcategory created successfully.',
+            'data' => new CategoryResource($subcategory->fresh(['parent'])),
         ], 201);
     }
 
