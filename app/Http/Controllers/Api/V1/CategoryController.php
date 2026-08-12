@@ -34,36 +34,12 @@ class CategoryController extends Controller
                 $query->where('is_featured', true);
             }
 
-            $allCats = $query->get();
-
-            // Deduplicate parent categories semantically (e.g. Beauty & Care vs Beauty & Personal Care, Agriculture vs Agriculture & Seeds)
-            $seenKeys = [];
-            $uniqueCats = collect();
-
-            foreach ($allCats as $cat) {
-                $slugStr = strtolower(trim($cat->slug ?? ''));
-                $nameStr = strtolower(trim(is_array($cat->name) ? ($cat->name['en'] ?? reset($cat->name)) : $cat->name));
-
-                if (str_contains($slugStr, 'agriculture') || str_contains($nameStr, 'agriculture') || str_contains($slugStr, 'seed') || str_contains($nameStr, 'seed')) {
-                    $key = 'agriculture_seeds';
-                } elseif (str_contains($slugStr, 'beauty') || str_contains($nameStr, 'beauty') || str_contains($slugStr, 'cosmetic')) {
-                    $key = 'beauty_personal_care';
-                } elseif (str_contains($slugStr, 'pooja') || str_contains($nameStr, 'pooja') || str_contains($slugStr, 'spiritual')) {
-                    $key = 'religious_pooja';
-                } else {
-                    $key = $slugStr ?: $nameStr;
+            return $query->get()->map(function ($cat) {
+                if ($cat->relationLoaded('children')) {
+                    $cat->setRelation('children', $cat->children->unique('id')->values());
                 }
-
-                if (!in_array($key, $seenKeys)) {
-                    $seenKeys[] = $key;
-                    if ($cat->relationLoaded('children')) {
-                        $cat->setRelation('children', $cat->children->unique('slug')->values());
-                    }
-                    $uniqueCats->push($cat);
-                }
-            }
-
-            return $uniqueCats;
+                return $cat;
+            });
         });
 
         return response()->json([
