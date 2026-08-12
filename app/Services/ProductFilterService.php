@@ -32,12 +32,26 @@ class ProductFilterService
             });
         }
 
-        // 2. Subcategory Filter
-        if ($request->filled('subcategory')) {
-            $subcat = $request->input('subcategory');
-            $query->whereHas('subcategory', function ($q) use ($subcat) {
-                is_numeric($subcat) ? $q->where('id', $subcat) : $q->where('slug', $subcat);
-            });
+        // 2. Subcategory Filter (supports subcategory, subcategory_id, subcategories, single or comma-separated)
+        if ($request->filled('subcategory') || $request->filled('subcategory_id') || $request->filled('subcategories')) {
+            $rawSubcat = $request->input('subcategory') ?? $request->input('subcategory_id') ?? $request->input('subcategories');
+            $subcats = is_array($rawSubcat) ? $rawSubcat : explode(',', (string) $rawSubcat);
+            $subcats = array_filter(array_map('trim', $subcats));
+
+            if (!empty($subcats)) {
+                $numericIds = array_filter($subcats, 'is_numeric');
+                $slugs = array_diff($subcats, $numericIds);
+
+                $query->where(function ($q) use ($numericIds, $slugs) {
+                    if (!empty($numericIds)) {
+                        $q->whereIn('subcategory_id', array_map('intval', $numericIds))
+                          ->orWhereHas('subcategory', fn($sq) => $sq->whereIn('id', array_map('intval', $numericIds)));
+                    }
+                    if (!empty($slugs)) {
+                        $q->orWhereHas('subcategory', fn($sq) => $sq->whereIn('slug', $slugs));
+                    }
+                });
+            }
         }
 
         // 3. Brand Filter (supports array or comma-separated string)
