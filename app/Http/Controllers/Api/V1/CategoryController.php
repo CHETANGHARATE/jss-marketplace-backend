@@ -65,7 +65,12 @@ class CategoryController extends Controller
             $category = (clone $query)->where('id', (int) $slugOrId)->first()
                 ?? $query->where('slug', $slugOrId)->first();
         } else {
-            $category = $query->where('slug', $slugOrId)->first();
+            $rawSlug = strtolower(trim($slugOrId));
+            $dashSlug = \Illuminate\Support\Str::slug($rawSlug);
+            $underSlug = str_replace('-', '_', $dashSlug);
+
+            $category = (clone $query)->whereIn('slug', [$rawSlug, $dashSlug, $underSlug])->first()
+                ?? $query->whereRaw('LOWER(JSON_UNQUOTE(JSON_EXTRACT(name, "$.en"))) LIKE ?', ["%{$rawSlug}%"])->first();
         }
 
         if (!$category) {

@@ -15,7 +15,7 @@ class ProductFilterService
     {
         $query = $query ?? Product::query()->approved();
 
-        // 1. Category Filter (by slug, ID, or category_id)
+        // 1. Category Filter (by slug, ID, name, or category_id)
         if ($request->filled('category') || $request->filled('category_id')) {
             $cat = $request->input('category') ?? $request->input('category_id');
             $query->where(function ($q) use ($cat) {
@@ -25,9 +25,30 @@ class ProductFilterService
                       ->orWhere('subcategory_id', $catId)
                       ->orWhere('child_category_id', $catId)
                       ->orWhereHas('category', fn($cq) => $cq->where('id', $catId)->orWhere('parent_id', $catId));
+
+                    // If numeric ID has 0 direct matches (e.g. legacy/mock ID), check if category name can be resolved
+                    $resolvedCat = \App\Models\Category::find($catId);
+                    if ($resolvedCat) {
+                        $catSlug = $resolvedCat->slug;
+                        $q->orWhereHas('category', fn($cq) => $cq->where('slug', $catSlug)->orWhere('id', $resolvedCat->id));
+                    }
                 } else {
-                    $q->whereHas('category', fn($cq) => $cq->where('slug', $cat))
-                      ->orWhereHas('subcategory', fn($sq) => $sq->where('slug', $cat));
+                    $rawCat = strtolower(trim((string)$cat));
+                    $dashSlug = \Illuminate\Support\Str::slug($rawCat);
+                    $underSlug = str_replace('-', '_', $dashSlug);
+
+                    $q->whereHas('category', function ($cq) use ($rawCat, $dashSlug, $underSlug) {
+                        $cq->where('slug', $rawCat)
+                          ->orWhere('slug', $dashSlug)
+                          ->orWhere('slug', $underSlug)
+                          ->orWhereRaw('LOWER(JSON_UNQUOTE(JSON_EXTRACT(name, "$.en"))) LIKE ?', ["%{$rawCat}%"]);
+                    })
+                    ->orWhereHas('subcategory', function ($sq) use ($rawCat, $dashSlug, $underSlug) {
+                        $sq->where('slug', $rawCat)
+                          ->orWhere('slug', $dashSlug)
+                          ->orWhere('slug', $underSlug)
+                          ->orWhereRaw('LOWER(JSON_UNQUOTE(JSON_EXTRACT(name, "$.en"))) LIKE ?', ["%{$rawCat}%"]);
+                    });
                 }
             });
         }
