@@ -70,12 +70,58 @@ class VendorStoreController extends Controller
     public function register(RegisterVendorStoreRequest $request): JsonResponse
     {
         try {
-            $store = $this->storeService->registerStore($request->user(), $request->validated());
+            $user = $request->user();
+            $validated = $request->validated();
+
+            if (!$user) {
+                $email = strtolower($validated['store_email'] ?? '');
+                $phone = $validated['store_phone'] ?? null;
+
+                if (!empty($email)) {
+                    $user = \App\Models\User::where('email', $email)->first();
+                }
+                if (!$user && !empty($phone)) {
+                    $user = \App\Models\User::where('phone', $phone)->first();
+                }
+
+                if (!$user) {
+                    if (empty($email)) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Email address is required for seller registration.',
+                        ], 422);
+                    }
+
+                    $name = $validated['owner_name'] ?? explode('@', $email)[0];
+                    $password = $validated['password'] ?? \Illuminate\Support\Str::random(12);
+
+                    $user = \App\Models\User::create([
+                        'name' => $name,
+                        'email' => $email,
+                        'phone' => $phone,
+                        'password' => \Illuminate\Support\Facades\Hash::make($password),
+                        'role' => \App\Enums\UserRole::SELLER,
+                        'status' => \App\Enums\UserStatus::ACTIVE,
+                        'email_verified_at' => now(),
+                    ]);
+                }
+            }
+
+            $store = $this->storeService->registerStore($user, $validated);
+
+            $token = null;
+            if (!$request->user()) {
+                $token = $user->createToken('auth_token')->plainTextToken;
+            }
 
             return response()->json([
                 'success' => true,
                 'message' => 'Vendor store registered successfully and is pending KYC verification.',
-                'data' => new VendorStoreResource($store),
+                'data' => [
+                    'store' => new VendorStoreResource($store),
+                    'access_token' => $token,
+                    'token_type' => 'Bearer',
+                ],
             ], 201);
         } catch (Exception $e) {
             return response()->json([

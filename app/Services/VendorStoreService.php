@@ -17,13 +17,37 @@ class VendorStoreService
      */
     public function registerStore(User $user, array $data): VendorStore
     {
-        if (VendorStore::where('user_id', $user->id)->exists()) {
-            throw new Exception("You already have a vendor store registered.");
-        }
-
         return DB::transaction(function () use ($user, $data) {
             // Assign seller role safely across sanctum, web, and api guards
             $user->assignRoleSafely(UserRole::SELLER->value);
+
+            if (isset($data['owner_name']) && !empty($data['owner_name'])) {
+                $user->update(['name' => $data['owner_name']]);
+            }
+
+            $existingStore = VendorStore::where('user_id', $user->id)->first();
+            if ($existingStore) {
+                if ($existingStore->status === 'active' || $existingStore->kyc_status === 'verified') {
+                    throw new Exception("You already have an active verified vendor store.");
+                }
+
+                // Update existing pending application
+                $existingStore->update([
+                    'store_name' => $data['store_name'],
+                    'store_email' => $data['store_email'] ?? $user->email,
+                    'store_phone' => $data['store_phone'] ?? $user->phone,
+                    'description' => $data['description'] ?? $existingStore->description,
+                    'address' => $data['address'] ?? $existingStore->address,
+                    'city' => $data['city'] ?? $existingStore->city,
+                    'state' => $data['state'] ?? $existingStore->state,
+                    'pincode' => $data['pincode'] ?? $existingStore->pincode,
+                    'kyc_status' => 'pending',
+                    'kyc_documents' => $data['kyc_documents'] ?? $existingStore->kyc_documents,
+                    'status' => 'pending',
+                ]);
+
+                return $existingStore->fresh(['wallet']);
+            }
 
             $slug = Str::slug($data['store_name']) . '-' . Str::random(4);
 
@@ -45,8 +69,9 @@ class VendorStoreService
             ]);
 
             // Initialize Wallet
-            VendorWallet::create([
+            VendorWallet::firstOrCreate([
                 'vendor_store_id' => $store->id,
+            ], [
                 'balance' => 0.00,
                 'pending_balance' => 0.00,
                 'total_withdrawn' => 0.00,

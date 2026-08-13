@@ -7,6 +7,7 @@ use App\Models\Payment;
 use App\Models\Product;
 use App\Models\Review;
 use App\Models\User;
+use App\Models\VendorStore;
 use Illuminate\Support\Facades\DB;
 
 class AnalyticsService
@@ -24,6 +25,9 @@ class AnalyticsService
         $totalProducts = Product::count();
         $lowStockCount = Product::where('stock_quantity', '<=', 5)->count();
         $pendingReviewsCount = Review::where('status', 'pending')->count();
+        $pendingProductsCount = Product::whereIn('status', ['pending', 'pending_review'])->count();
+        $totalVendors   = (int) VendorStore::count();
+        $pendingVendors = (int) VendorStore::where('status', 'pending')->count();
 
         $recentOrders = Order::with('user')->latest()->take(5)->get();
 
@@ -40,16 +44,25 @@ class AnalyticsService
             ->get();
 
         return [
-            'metrics' => [
-                'total_sales' => (float) round($totalSales, 2),
-                'total_orders' => (int) $totalOrders,
-                'total_customers' => (int) $totalCustomers,
-                'total_products' => (int) $totalProducts,
-                'low_stock_alerts' => (int) $lowStockCount,
-                'pending_reviews' => (int) $pendingReviewsCount,
-            ],
-            'recent_orders' => $recentOrders,
-            'sales_trend' => $salesTrend,
+            'total_revenue'              => (float) round($totalSales, 2),
+            'total_sales'                => (float) round($totalSales, 2),
+            'total_orders'               => (int) $totalOrders,
+            'total_customers'            => (int) $totalCustomers,
+            'total_products'             => (int) $totalProducts,
+            'total_vendors'              => (int) $totalVendors,
+            'total_categories'           => (int) \App\Models\Category::whereNull('parent_id')->count(),
+            'low_stock_count'            => (int) $lowStockCount,
+            'low_stock_alerts'           => (int) $lowStockCount,
+            'pending_reviews'            => (int) $pendingReviewsCount,
+            'pending_product_approvals'  => (int) $pendingProductsCount,
+            'pending_vendor_approvals'   => (int) $pendingVendors,
+            'system_health'              => 'healthy',
+            'recent_orders'              => $recentOrders,
+            'sales_chart'                => $salesTrend->map(fn ($r) => [
+                'date'    => $r->date,
+                'revenue' => (float) $r->total_sales,
+                'orders'  => (int) $r->total_orders,
+            ]),
         ];
     }
 
@@ -74,11 +87,35 @@ class AnalyticsService
             ->groupBy('gateway')
             ->get();
 
+        // Orders by status breakdown
+        $ordersByStatus = Order::select('status', DB::raw('COUNT(id) as count'))
+            ->groupBy('status')
+            ->get()
+            ->pluck('count', 'status')
+            ->toArray();
+
+        // Revenue by day
+        $revenueByDay = Order::select(
+            DB::raw('DATE(created_at) as date'),
+            DB::raw('SUM(total_amount) as revenue')
+        )
+            ->when($startDate && $endDate,
+                fn ($q) => $q->whereBetween('created_at', [$startDate, $endDate]),
+                fn ($q) => $q->where('created_at', '>=', now()->subDays(30))
+            )
+            ->whereIn('status', ['confirmed', 'processing', 'shipped', 'delivered'])
+            ->groupBy('date')
+            ->orderBy('date', 'ASC')
+            ->get()
+            ->map(fn ($r) => ['date' => $r->date, 'revenue' => (float) $r->revenue]);
+
         return [
-            'total_revenue' => $totalRevenue,
-            'total_orders' => $totalOrders,
+            'total_revenue'       => $totalRevenue,
+            'total_orders'        => $totalOrders,
             'average_order_value' => $averageOrderValue,
-            'payment_breakdown' => $paymentBreakdown,
+            'orders_by_status'    => $ordersByStatus,
+            'revenue_by_day'      => $revenueByDay,
+            'payment_breakdown'   => $paymentBreakdown,
         ];
     }
 

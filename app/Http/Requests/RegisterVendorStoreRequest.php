@@ -8,12 +8,14 @@ class RegisterVendorStoreRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return auth()->check();
+        return true;
     }
 
     public function rules(): array
     {
         return [
+            'owner_name' => ['nullable', 'string', 'max:255'],
+            'password' => ['nullable', 'string', 'min:6'],
             'store_name' => ['required', 'string', 'max:255'],
             'store_email' => ['nullable', 'email', 'max:255'],
             'store_phone' => ['nullable', 'string', 'max:20'],
