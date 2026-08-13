@@ -29,7 +29,7 @@ class AnalyticsService
         $totalVendors   = (int) VendorStore::count();
         $pendingVendors = (int) VendorStore::where('status', 'pending')->count();
 
-        $recentOrders = Order::with('user')->latest()->take(5)->get();
+        $recentOrders = Order::with('user')->latest()->take(8)->get();
 
         // 30 Days Sales Trend
         $salesTrend = Order::select(
@@ -42,6 +42,31 @@ class AnalyticsService
             ->groupBy('date')
             ->orderBy('date', 'ASC')
             ->get();
+
+        // Order status breakdown for donut chart
+        $ordersByStatus = Order::select('status', DB::raw('COUNT(id) as count'))
+            ->groupBy('status')
+            ->get()
+            ->pluck('count', 'status')
+            ->toArray();
+
+        // Top 6 categories by number of items sold (via order_items → products → category)
+        $topCategories = DB::table('order_items')
+            ->join('products', 'order_items.product_id', '=', 'products.id')
+            ->join('categories', 'products.category_id', '=', 'categories.id')
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->whereIn('orders.status', ['confirmed', 'processing', 'shipped', 'delivered'])
+            ->select(
+                'categories.id',
+                'categories.name',
+                DB::raw('SUM(order_items.quantity) as total_sold')
+            )
+            ->groupBy('categories.id', 'categories.name')
+            ->orderByDesc('total_sold')
+            ->limit(6)
+            ->get();
+
+        $maxSold = $topCategories->max('total_sold') ?: 1;
 
         return [
             'total_revenue'              => (float) round($totalSales, 2),
@@ -58,6 +83,13 @@ class AnalyticsService
             'pending_vendor_approvals'   => (int) $pendingVendors,
             'system_health'              => 'healthy',
             'recent_orders'              => $recentOrders,
+            'orders_by_status'           => $ordersByStatus,
+            'top_categories'             => $topCategories->map(fn ($c) => [
+                'id'         => $c->id,
+                'name'       => $c->name,
+                'total_sold' => (int) $c->total_sold,
+                'percentage' => (int) round(($c->total_sold / $maxSold) * 100),
+            ]),
             'sales_chart'                => $salesTrend->map(fn ($r) => [
                 'date'    => $r->date,
                 'revenue' => (float) $r->total_sales,
