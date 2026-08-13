@@ -15,10 +15,18 @@ class AnalyticsService
     /**
      * Get high-level overview metrics for Admin Dashboard.
      */
-    public function getDashboardOverview(): array
+    public function getDashboardOverview(?string $startDate = null, ?string $endDate = null): array
     {
-        $totalSales = Order::whereIn('status', ['confirmed', 'processing', 'shipped', 'delivered'])->sum('total_amount');
-        $totalOrders = Order::count();
+        $salesQuery = Order::whereIn('status', ['confirmed', 'processing', 'shipped', 'delivered']);
+        $ordersQuery = Order::query();
+
+        if ($startDate && $endDate) {
+            $salesQuery->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
+            $ordersQuery->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
+        }
+
+        $totalSales = $salesQuery->sum('total_amount');
+        $totalOrders = $ordersQuery->count();
         $totalCustomers = User::whereHas('roles', function ($q) {
             $q->where('name', 'customer');
         })->count();
@@ -29,15 +37,22 @@ class AnalyticsService
         $totalVendors   = (int) VendorStore::count();
         $pendingVendors = (int) VendorStore::where('status', 'pending')->count();
 
-        $recentOrders = Order::with('user')->latest()->take(8)->get();
+        $recentOrders = Order::with('user')
+            ->when($startDate && $endDate, fn ($q) => $q->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59']))
+            ->latest()
+            ->take(8)
+            ->get();
 
-        // 30 Days Sales Trend
+        // Sales Trend
         $salesTrend = Order::select(
             DB::raw('DATE(created_at) as date'),
             DB::raw('SUM(total_amount) as total_sales'),
             DB::raw('COUNT(id) as total_orders')
         )
-            ->where('created_at', '>=', now()->subDays(30))
+            ->when($startDate && $endDate,
+                fn ($q) => $q->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59']),
+                fn ($q) => $q->where('created_at', '>=', now()->subDays(30))
+            )
             ->whereIn('status', ['confirmed', 'processing', 'shipped', 'delivered'])
             ->groupBy('date')
             ->orderBy('date', 'ASC')
@@ -45,6 +60,7 @@ class AnalyticsService
 
         // Order status breakdown for donut chart
         $ordersByStatus = Order::select('status', DB::raw('COUNT(id) as count'))
+            ->when($startDate && $endDate, fn ($q) => $q->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59']))
             ->groupBy('status')
             ->get()
             ->pluck('count', 'status')
@@ -56,6 +72,7 @@ class AnalyticsService
             ->join('categories', 'products.category_id', '=', 'categories.id')
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
             ->whereIn('orders.status', ['confirmed', 'processing', 'shipped', 'delivered'])
+            ->when($startDate && $endDate, fn ($q) => $q->whereBetween('orders.created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59']))
             ->select(
                 'categories.id',
                 'categories.name',

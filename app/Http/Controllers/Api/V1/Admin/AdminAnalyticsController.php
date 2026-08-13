@@ -29,9 +29,11 @@ class AdminAnalyticsController extends Controller
     /**
      * Get Admin Dashboard Overview stats & sales chart.
      */
-    public function overview(): JsonResponse
+    public function overview(Request $request): JsonResponse
     {
-        $data = $this->analyticsService->getDashboardOverview();
+        $startDate = $request->query('start_date');
+        $endDate = $request->query('end_date');
+        $data = $this->analyticsService->getDashboardOverview($startDate, $endDate);
 
         return response()->json([
             'success' => true,
