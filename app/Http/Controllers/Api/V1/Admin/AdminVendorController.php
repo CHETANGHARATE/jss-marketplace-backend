@@ -98,6 +98,44 @@ class AdminVendorController extends Controller
     }
 
     /**
+     * Get single Vendor Store detailed profile & metrics.
+     */
+    public function show(int $id): JsonResponse
+    {
+        $store = VendorStore::with(['user', 'wallet', 'settlements'])->findOrFail($id);
+
+        $totalProducts = \App\Models\Product::where('seller_id', $store->user_id)->count();
+        $activeProducts = \App\Models\Product::where('seller_id', $store->user_id)->where('status', 'active')->count();
+        $pendingProducts = \App\Models\Product::where('seller_id', $store->user_id)->where('status', 'pending')->count();
+        $rejectedProducts = \App\Models\Product::where('seller_id', $store->user_id)->where('status', 'rejected')->count();
+
+        $recentProducts = \App\Models\Product::where('seller_id', $store->user_id)
+            ->latest('id')
+            ->take(10)
+            ->get(['id', 'name', 'slug', 'base_price', 'stock', 'status', 'created_at']);
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'store' => new VendorStoreResource($store),
+                'catalog' => [
+                    'total_products' => $totalProducts,
+                    'active_products' => $activeProducts,
+                    'pending_products' => $pendingProducts,
+                    'rejected_products' => $rejectedProducts,
+                    'recent_products' => $recentProducts,
+                ],
+                'financial' => [
+                    'balance' => (float) ($store->wallet?->balance ?? 0),
+                    'pending_balance' => (float) ($store->wallet?->pending_balance ?? 0),
+                    'commission_rate' => (float) $store->commission_rate,
+                    'settlements_count' => $store->settlements->count(),
+                ],
+            ]
+        ], 200);
+    }
+
+    /**
      * Moderate vendor KYC & activate store.
      */
     public function verifyKYC(VerifyKYCRequest $request, int $id): JsonResponse

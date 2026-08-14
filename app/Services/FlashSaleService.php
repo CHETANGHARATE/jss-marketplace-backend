@@ -27,7 +27,7 @@ class FlashSaleService
     /**
      * Create a new Flash Sale campaign (Admin).
      */
-    public function createFlashSale(array $data, array $products): FlashSale
+    public function createFlashSale(array $data, ?array $products = []): FlashSale
     {
         return DB::transaction(function () use ($data, $products) {
             $slug = Str::slug($data['title']) . '-' . Str::random(4);
@@ -41,18 +41,24 @@ class FlashSaleService
                 'is_active' => $data['is_active'] ?? true,
             ]);
 
-            foreach ($products as $item) {
-                $product = Product::findOrFail($item['product_id']);
-                $discount = (float) $data['discount_percentage'];
-                $flashPrice = round($product->original_price * (1 - ($discount / 100)), 2);
+            if (!empty($products) && is_array($products)) {
+                foreach ($products as $item) {
+                    if (empty($item['product_id'])) continue;
+                    $product = Product::find($item['product_id']);
+                    if (!$product) continue;
 
-                FlashSaleProduct::create([
-                    'flash_sale_id' => $flashSale->id,
-                    'product_id' => $product->id,
-                    'flash_price' => $flashPrice,
-                    'quantity_limit' => $item['quantity_limit'] ?? 50,
-                    'sold_quantity' => 0,
-                ]);
+                    $basePrice = (float) ($product->original_price ?: ($product->offer_price ?: 100));
+                    $discount = (float) $data['discount_percentage'];
+                    $flashPrice = round($basePrice * (1 - ($discount / 100)), 2);
+
+                    FlashSaleProduct::create([
+                        'flash_sale_id' => $flashSale->id,
+                        'product_id' => $product->id,
+                        'flash_price' => $flashPrice,
+                        'quantity_limit' => $item['quantity_limit'] ?? 50,
+                        'sold_quantity' => 0,
+                    ]);
+                }
             }
 
             return $flashSale->load('products.product');

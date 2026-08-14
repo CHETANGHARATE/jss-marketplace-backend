@@ -135,4 +135,28 @@ class User extends Authenticatable
     {
         return $this->role === UserRole::CUSTOMER || $this->hasRoleSafely(UserRole::CUSTOMER->value);
     }
+
+    /**
+     * Orders placed by this user
+     */
+    public function orders(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Order::class, 'user_id');
+    }
+
+    /**
+     * Addresses saved by this user
+     */
+    public function addresses(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Address::class, 'user_id');
+    }
+
+    /**
+     * Vendor store if seller
+     */
+    public function vendorStore(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(VendorStore::class, 'user_id');
+    }
 }

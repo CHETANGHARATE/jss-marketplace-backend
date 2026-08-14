@@ -13,6 +13,8 @@ use App\Http\Controllers\Api\V1\Admin\AdminProductController;
 use App\Http\Controllers\Api\V1\Admin\AdminBulkImportController;
 use App\Http\Controllers\Api\V1\Admin\AttributeTemplateController;
 use App\Http\Controllers\Api\V1\Admin\AdminVendorController;
+use App\Http\Controllers\Api\V1\Admin\AdminCmsController;
+use App\Http\Controllers\Api\V1\Admin\AdminStaffController;
 use App\Http\Controllers\Api\V1\AttributeController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BrandController;
@@ -420,10 +422,12 @@ Route::prefix('v1')->group(function () {
 
         // Admin Customer Management
         Route::get('/customers', [AdminCustomerController::class, 'index']);
+        Route::get('/customers/{id}', [AdminCustomerController::class, 'show']);
         Route::patch('/customers/{id}/toggle-status', [AdminCustomerController::class, 'toggleStatus']);
 
         // Admin Multi-Vendor Management (Module 11)
         Route::get('/vendor/stores', [AdminVendorController::class, 'stores']);
+        Route::get('/vendor/stores/{id}', [AdminVendorController::class, 'show']);
         Route::get('/vendor/stats', [AdminVendorController::class, 'stats']);
         Route::patch('/vendor/stores/{id}/kyc', [AdminVendorController::class, 'verifyKYC']);
         Route::post('/vendor/stores/{id}/approve', [AdminVendorController::class, 'approveStore']);
@@ -436,13 +440,43 @@ Route::prefix('v1')->group(function () {
         // Admin Promotions, Coupons & Flash Sales (Module 12)
         Route::get('/coupons', [AdminPromotionController::class, 'indexCoupons']);
         Route::post('/coupons', [AdminPromotionController::class, 'storeCoupon']);
+        Route::put('/coupons/{id}', [AdminPromotionController::class, 'updateCoupon']);
+        Route::patch('/coupons/{id}/toggle-status', [AdminPromotionController::class, 'toggleCouponStatus']);
         Route::delete('/coupons/{id}', [AdminPromotionController::class, 'destroyCoupon']);
+
         Route::get('/flash-sales', [AdminPromotionController::class, 'indexFlashSales']);
         Route::post('/flash-sales', [AdminPromotionController::class, 'storeFlashSale']);
+        Route::put('/flash-sales/{id}', [AdminPromotionController::class, 'updateFlashSale']);
+        Route::patch('/flash-sales/{id}/toggle-status', [AdminPromotionController::class, 'toggleFlashSaleStatus']);
+        Route::delete('/flash-sales/{id}', [AdminPromotionController::class, 'destroyFlashSale']);
 
         // Admin Search Analytics & Synonyms (Module 13)
         Route::get('/search/analytics', [AdminSearchController::class, 'analytics']);
         Route::get('/search/synonyms', [AdminSearchController::class, 'synonyms']);
         Route::post('/search/synonyms', [AdminSearchController::class, 'storeSynonym']);
+
+        // Admin CMS & Content Management
+        Route::get('/cms/banners', [AdminCmsController::class, 'indexBanners']);
+        Route::post('/cms/banners', [AdminCmsController::class, 'storeBanner']);
+        Route::put('/cms/banners/{id}', [AdminCmsController::class, 'updateBanner']);
+        Route::patch('/cms/banners/{id}/toggle-status', [AdminCmsController::class, 'toggleBannerStatus']);
+        Route::delete('/cms/banners/{id}', [AdminCmsController::class, 'destroyBanner']);
+
+        Route::get('/cms/popups', [AdminCmsController::class, 'getPopups']);
+        Route::put('/cms/popups', [AdminCmsController::class, 'updatePopup']);
+
+        Route::get('/cms/pages', [AdminCmsController::class, 'getPages']);
+        Route::put('/cms/pages/{id}', [AdminCmsController::class, 'updatePage']);
+
+        Route::get('/cms/faqs', [AdminCmsController::class, 'getFaqs']);
+        Route::post('/cms/faqs', [AdminCmsController::class, 'storeFaq']);
+        Route::delete('/cms/faqs/{id}', [AdminCmsController::class, 'destroyFaq']);
+
+        // Admin Staff & RBAC
+        Route::get('/staff/roles', [AdminStaffController::class, 'indexRoles']);
+        Route::get('/staff', [AdminStaffController::class, 'indexStaff']);
+        Route::post('/staff', [AdminStaffController::class, 'storeStaff']);
+        Route::put('/staff/{id}', [AdminStaffController::class, 'updateStaff']);
+        Route::delete('/staff/{id}', [AdminStaffController::class, 'destroyStaff']);
     });
 });
