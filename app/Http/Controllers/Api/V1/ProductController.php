@@ -71,7 +71,7 @@ class ProductController extends Controller
      */
     public function trending(Request $request): JsonResponse
     {
-        $limit = min((int) $request->input('limit', 8), 20);
+        $limit = min((int) $request->input('limit', 15), 30);
 
         $products = Product::approved()
             ->where('is_trending', true)
@@ -79,6 +79,18 @@ class ProductController extends Controller
             ->latest()
             ->limit($limit)
             ->get();
+
+        if ($products->count() < $limit) {
+            $needed = $limit - $products->count();
+            $more = Product::approved()
+                ->whereNotIn('id', $products->pluck('id'))
+                ->with(['category', 'brand', 'primaryImage'])
+                ->orderByDesc('rating')
+                ->latest()
+                ->limit($needed)
+                ->get();
+            $products = $products->merge($more);
+        }
 
         return response()->json([
             'success' => true,
