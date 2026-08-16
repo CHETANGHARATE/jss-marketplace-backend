@@ -88,11 +88,13 @@ class ProductFilterService
 
         // 4. Price Range Filter
         if ($request->filled('min_price')) {
-            $query->where('offer_price', '>=', (float) $request->input('min_price'));
+            $minPrice = (float) $request->input('min_price');
+            $query->whereRaw('COALESCE(NULLIF(offer_price, 0), original_price) >= ?', [$minPrice]);
         }
 
         if ($request->filled('max_price')) {
-            $query->where('offer_price', '<=', (float) $request->input('max_price'));
+            $maxPrice = (float) $request->input('max_price');
+            $query->whereRaw('COALESCE(NULLIF(offer_price, 0), original_price) <= ?', [$maxPrice]);
         }
 
         // 5. Rating Threshold Filter
@@ -100,9 +102,13 @@ class ProductFilterService
             $query->where('rating', '>=', (float) $request->input('rating'));
         }
 
-        // 6. Minimum Discount Filter
-        if ($request->filled('discount')) {
-            $query->where('discount_percent', '>=', (int) $request->input('discount'));
+        // 6. Minimum Discount Filter (supports discount, min_discount, discount_min)
+        if ($request->filled('discount') || $request->filled('min_discount') || $request->filled('discount_min')) {
+            $minDiscount = (int) ($request->input('discount') ?? $request->input('min_discount') ?? $request->input('discount_min'));
+            $query->where(function ($dq) use ($minDiscount) {
+                $dq->where('discount_percent', '>=', $minDiscount)
+                   ->orWhereRaw('CASE WHEN original_price > 0 AND offer_price > 0 AND original_price > offer_price THEN ROUND(((original_price - offer_price) / original_price) * 100) ELSE 0 END >= ?', [$minDiscount]);
+            });
         }
 
         // 7. Stock Status Filter
