@@ -5,23 +5,25 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class LoyaltyPoint extends Model
+class LoyaltyTransaction extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'user_id',
-        'points_balance',
-        'total_earned',
+        'order_id',
+        'points',
+        'type',
+        'inr_value',
+        'notes',
     ];
 
     protected function casts(): array
     {
         return [
-            'points_balance' => 'integer',
-            'total_earned' => 'integer',
+            'points' => 'integer',
+            'inr_value' => 'decimal:2',
         ];
     }
 
@@ -30,8 +32,8 @@ class LoyaltyPoint extends Model
         return $this->belongsTo(User::class, 'user_id');
     }
 
-    public function transactions(): HasMany
+    public function order(): BelongsTo
     {
-        return $this->hasMany(LoyaltyTransaction::class, 'user_id', 'user_id');
+        return $this->belongsTo(Order::class, 'order_id');
     }
 }

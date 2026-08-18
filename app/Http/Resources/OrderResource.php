@@ -23,6 +23,8 @@ class OrderResource extends JsonResource
                 'tax' => (float) $this->tax_amount,
                 'shipping' => (float) $this->shipping_amount,
                 'discount' => (float) $this->discount_amount,
+                'loyalty_points_redeemed' => (int) ($this->loyalty_points_redeemed ?? 0),
+                'loyalty_discount' => (float) ($this->loyalty_discount_amount ?? 0.00),
                 'total' => (float) $this->total_amount,
             ],
             'items' => OrderItemResource::collection($this->whenLoaded('items')),

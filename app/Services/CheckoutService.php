@@ -4,10 +4,15 @@ namespace App\Services;
 
 use App\Models\Address;
 use App\Models\Cart;
+use App\Models\Coupon;
+use App\Models\CouponUsage;
 use App\Models\Inventory;
+use App\Models\LoyaltyPoint;
+use App\Models\LoyaltyTransaction;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Models\Setting;
 use App\Models\User;
 use App\Models\Warehouse;
 use Illuminate\Support\Facades\DB;
@@ -18,19 +23,37 @@ class CheckoutService
 {
     protected InventoryService $inventoryService;
     protected CartService $cartService;
+    protected OrderNotificationService $notificationService;
 
-    public function __construct(InventoryService $inventoryService, CartService $cartService)
-    {
+    public function __construct(
+        InventoryService $inventoryService,
+        CartService $cartService,
+        OrderNotificationService $notificationService
+    ) {
         $this->inventoryService = $inventoryService;
         $this->cartService = $cartService;
+        $this->notificationService = $notificationService;
     }
 
     /**
      * Process checkout from user's active cart.
      */
-    public function processCheckout(User $user, int $shippingAddressId, ?int $billingAddressId = null, string $paymentMethod = 'cod'): Order
-    {
-        return DB::transaction(function () use ($user, $shippingAddressId, $billingAddressId, $paymentMethod) {
+    public function processCheckout(
+        User $user,
+        int $shippingAddressId,
+        ?int $billingAddressId = null,
+        string $paymentMethod = 'cod',
+        ?int $pointsToRedeem = null,
+        ?string $couponCode = null
+    ): Order {
+        return DB::transaction(function () use (
+            $user,
+            $shippingAddressId,
+            $billingAddressId,
+            $paymentMethod,
+            $pointsToRedeem,
+            $couponCode
+        ) {
             // 1. Fetch active cart
             $cart = Cart::where('user_id', $user->id)
                 ->where('status', 'active')
@@ -59,28 +82,92 @@ class CheckoutService
                 }
 
                 if ($product->stock_quantity < $item->quantity) {
-                    throw new Exception("Product '{$product->name['en']}' has insufficient stock (Requested: {$item->quantity}, Available: {$product->stock_quantity}).");
+                    $locale = app()->getLocale();
+                    $nameStr = is_array($product->name) ? ($product->name[$locale] ?? $product->name['en'] ?? 'Item') : $product->name;
+                    throw new Exception("Product '{$nameStr}' has insufficient stock (Requested: {$item->quantity}, Available: {$product->stock_quantity}).");
                 }
             }
 
-            // 5. Generate Unique Order Number (e.g. ORD-20260720-98214)
+            // 5. Financial Calculations & Coupon Logic
+            $subtotal = (float) $cart->subtotal;
+            $discountAmount = 0.00;
+            $appliedCoupon = null;
+
+            if (!empty($couponCode)) {
+                $coupon = Coupon::where('code', strtoupper(trim($couponCode)))
+                    ->where('is_active', true)
+                    ->where('starts_at', '<=', now())
+                    ->where('expires_at', '>=', now())
+                    ->first();
+
+                if ($coupon && $subtotal >= (float) $coupon->min_spend) {
+                    if ($coupon->discount_type === 'percentage') {
+                        $calc = ($subtotal * (float) $coupon->discount_value) / 100;
+                        $discountAmount = $coupon->max_discount ? min($calc, (float) $coupon->max_discount) : $calc;
+                    } else {
+                        $discountAmount = min((float) $coupon->discount_value, $subtotal);
+                    }
+                    $appliedCoupon = $coupon;
+                }
+            }
+
+            // 6. JSS Coins / Loyalty Points Redemption Logic (Feature 25)
+            $loyaltyPointsRedeemed = 0;
+            $loyaltyDiscountAmount = 0.00;
+
+            if ($pointsToRedeem && $pointsToRedeem > 0) {
+                $loyalty = LoyaltyPoint::firstOrCreate(
+                    ['user_id' => $user->id],
+                    ['points_balance' => 0, 'total_earned' => 0]
+                );
+
+                if ($pointsToRedeem > $loyalty->points_balance) {
+                    throw new Exception("You only have {$loyalty->points_balance} JSS Coins available.");
+                }
+
+                // Configurable conversion rate: 1 Coin = ₹1.00 (default)
+                $pointValueInr = (float) Setting::get('loyalty_point_value_inr', 1.00);
+                $maxRedemptionPercent = (float) Setting::get('loyalty_max_redemption_percent', 50.0);
+
+                // Max usable value cannot exceed configurable % of subtotal (e.g. 50%)
+                $maxAllowedDiscount = ($subtotal * $maxRedemptionPercent) / 100;
+                $requestedDiscount = $pointsToRedeem * $pointValueInr;
+
+                if ($requestedDiscount > $maxAllowedDiscount) {
+                    $maxCoins = (int) floor($maxAllowedDiscount / $pointValueInr);
+                    throw new Exception("You can redeem a maximum of {$maxCoins} JSS Coins (up to {$maxRedemptionPercent}% of order subtotal).");
+                }
+
+                // Ensure discount doesn't make total negative after coupon
+                $remainingSubtotal = max(0.00, $subtotal - $discountAmount);
+                $finalCoinsDiscount = min($requestedDiscount, $remainingSubtotal);
+
+                if ($finalCoinsDiscount > 0) {
+                    $loyaltyDiscountAmount = $finalCoinsDiscount;
+                    $loyaltyPointsRedeemed = (int) ceil($finalCoinsDiscount / $pointValueInr);
+
+                    // Atomically deduct points balance
+                    $loyalty->decrement('points_balance', $loyaltyPointsRedeemed);
+                }
+            }
+
+            // 7. Calculate Final Order Amounts
+            $taxAmount = 0.00;
+            $shippingAmount = ($subtotal >= 499) ? 0.00 : 49.00; // Free shipping over ₹499
+            $netDiscount = $discountAmount + $loyaltyDiscountAmount;
+            $totalAmount = max(0.00, $subtotal + $taxAmount + $shippingAmount - $netDiscount);
+
+            // 8. Generate Unique Order Number
             $orderNumber = 'ORD-' . date('Ymd') . '-' . strtoupper(Str::random(5));
 
-            // 6. Calculate Financials
-            $subtotal = $cart->subtotal;
-            $taxAmount = 0.00; // Future Module expansion
-            $shippingAmount = 0.00; // Future Module expansion
-            $discountAmount = 0.00; // Future Module expansion
-            $totalAmount = $subtotal + $taxAmount + $shippingAmount - $discountAmount;
-
-            // 7. Create Order Record
+            // 9. Create Order Record
             $order = Order::create([
                 'order_number' => $orderNumber,
                 'user_id' => $user->id,
                 'shipping_address_id' => $shippingAddress->id,
                 'billing_address_id' => $billingAddress->id,
                 'status' => 'pending',
-                'payment_status' => 'pending',
+                'payment_status' => ($paymentMethod === 'cod') ? 'pending' : 'pending',
                 'payment_method' => $paymentMethod,
                 'shipping_address_snapshot' => $shippingAddress->toSnapshotArray(),
                 'billing_address_snapshot' => $billingAddress->toSnapshotArray(),
@@ -88,10 +175,35 @@ class CheckoutService
                 'tax_amount' => $taxAmount,
                 'shipping_amount' => $shippingAmount,
                 'discount_amount' => $discountAmount,
+                'loyalty_points_redeemed' => $loyaltyPointsRedeemed,
+                'loyalty_discount_amount' => $loyaltyDiscountAmount,
                 'total_amount' => $totalAmount,
             ]);
 
-            // 8. Create Order Items & Deduct Inventory
+            // 10. Record Loyalty Transaction Ledger (Feature 25)
+            if ($loyaltyPointsRedeemed > 0) {
+                LoyaltyTransaction::create([
+                    'user_id' => $user->id,
+                    'order_id' => $order->id,
+                    'points' => -$loyaltyPointsRedeemed,
+                    'type' => 'redeemed',
+                    'inr_value' => $loyaltyDiscountAmount,
+                    'notes' => "Redeemed {$loyaltyPointsRedeemed} JSS Coins for order #{$orderNumber}",
+                ]);
+            }
+
+            // Record Coupon Usage if coupon was applied
+            if ($appliedCoupon) {
+                CouponUsage::create([
+                    'coupon_id' => $appliedCoupon->id,
+                    'user_id' => $user->id,
+                    'order_id' => $order->id,
+                    'discount_amount' => $discountAmount,
+                ]);
+                $appliedCoupon->increment('times_used');
+            }
+
+            // 11. Create Order Items & Deduct Inventory
             foreach ($cart->items as $item) {
                 $product = $item->product;
 
@@ -126,7 +238,6 @@ class CheckoutService
                             $user->id
                         );
                     } else {
-                        // Directly update product stock if no specific inventory record exists
                         $product->decrement('stock_quantity', $item->quantity);
                         $product->update([
                             'stock_status' => $product->fresh()->stock_quantity > 0 ? 'in_stock' : 'out_of_stock'
@@ -140,11 +251,14 @@ class CheckoutService
                 }
             }
 
-            // 9. Mark cart as converted and clear items
+            // 12. Mark cart as converted and clear items
             $cart->update(['status' => 'converted']);
             $this->cartService->clearCart($cart);
 
-            return $order->fresh(['items.product', 'user']);
+            // 13. Dispatch Multi-Channel Notifications (Feature 39)
+            $this->notificationService->notifyOrderPlaced($order);
+
+            return $order->fresh(['items.product.primaryImage', 'user', 'shippingAddress', 'billingAddress']);
         });
     }
 }

@@ -26,6 +26,8 @@ class Order extends Model
         'tax_amount',
         'shipping_amount',
         'discount_amount',
+        'loyalty_points_redeemed',
+        'loyalty_discount_amount',
         'total_amount',
         'cancellation_reason',
         'cancelled_at',
@@ -40,6 +42,8 @@ class Order extends Model
             'tax_amount' => 'decimal:2',
             'shipping_amount' => 'decimal:2',
             'discount_amount' => 'decimal:2',
+            'loyalty_points_redeemed' => 'integer',
+            'loyalty_discount_amount' => 'decimal:2',
             'total_amount' => 'decimal:2',
             'cancelled_at' => 'datetime',
         ];
@@ -63,5 +67,10 @@ class Order extends Model
     public function items(): HasMany
     {
         return $this->hasMany(OrderItem::class, 'order_id');
+    }
+
+    public function loyaltyTransactions(): HasMany
+    {
+        return $this->hasMany(LoyaltyTransaction::class, 'order_id');
     }
 }

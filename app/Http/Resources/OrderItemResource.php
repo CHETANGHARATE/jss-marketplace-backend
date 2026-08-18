@@ -22,6 +22,8 @@ class OrderItemResource extends JsonResource
             'quantity' => $this->quantity,
             'subtotal' => (float) $this->subtotal,
             'status' => $this->status,
+            'cancellation_reason' => $this->cancellation_reason,
+            'cancelled_at' => $this->cancelled_at?->toIso8601String(),
         ];
     }
 }

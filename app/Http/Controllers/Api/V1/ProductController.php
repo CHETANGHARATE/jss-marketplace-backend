@@ -361,4 +361,28 @@ class ProductController extends Controller
             'message' => 'Product deleted successfully.',
         ], 200);
     }
+
+    /**
+     * Get Frequently Bought Together recommendations for a product (Feature 19).
+     */
+    public function frequentlyBoughtTogether(Request $request, int $id, \App\Services\RecommendationService $recommendationService): JsonResponse
+    {
+        $product = Product::find($id);
+
+        if (!$product) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Product not found.',
+            ], 404);
+        }
+
+        $limit = min((int) $request->input('limit', 2), 4);
+        $fbtProducts = $recommendationService->getFrequentlyBoughtTogether($product, $limit);
+
+        return response()->json([
+            'success' => true,
+            'data' => ProductResource::collection($fbtProducts),
+        ], 200);
+    }
 }
+

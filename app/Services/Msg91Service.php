@@ -218,4 +218,55 @@ class Msg91Service
             ];
         }
     }
+
+    /**
+     * Send Transactional Notification (SMS/Flow) via MSG91
+     */
+    public function sendTransactionalMessage(string $mobile, string $message): array
+    {
+        $normalizedMobile = self::normalizeMobile($mobile);
+        $msg91Mobile = self::formatForMsg91($normalizedMobile);
+
+        if (empty($this->authKey)) {
+            Log::warning('MSG91_CONFIG: MSG91_AUTH_KEY missing, skipping external SMS dispatch.');
+            return [
+                'success' => false,
+                'message' => 'SMS gateway configuration missing.',
+            ];
+        }
+
+        try {
+            Log::info("MSG91_TRANSACTIONAL_SMS_DISPATCH: Mobile [{$msg91Mobile}], Message [{$message}]");
+
+            // Standard MSG91 v5 SMS endpoint / flow fallback
+            $response = Http::withHeaders([
+                'authkey' => $this->authKey,
+                'Content-Type' => 'application/json',
+            ])->post('https://control.msg91.com/api/v5/flow/', [
+                'template_id' => $this->templateId,
+                'short_url' => '1',
+                'recipients' => [
+                    [
+                        'mobiles' => $msg91Mobile,
+                        'message' => $message,
+                    ]
+                ]
+            ]);
+
+            $data = $response->json();
+            Log::info("MSG91_TRANSACTIONAL_RESPONSE: Status [{$response->status()}], Body: " . json_encode($data));
+
+            return [
+                'success' => $response->successful(),
+                'data' => $data,
+            ];
+        } catch (\Throwable $e) {
+            Log::error("MSG91_TRANSACTIONAL_SMS_EXCEPTION: " . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => $e->getMessage(),
+            ];
+        }
+    }
 }
+

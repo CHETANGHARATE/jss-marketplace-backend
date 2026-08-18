@@ -22,6 +22,8 @@ class OrderItem extends Model
         'quantity',
         'subtotal',
         'status',
+        'cancellation_reason',
+        'cancelled_at',
     ];
 
     protected function casts(): array
@@ -30,6 +32,7 @@ class OrderItem extends Model
             'unit_price' => 'decimal:2',
             'quantity' => 'integer',
             'subtotal' => 'decimal:2',
+            'cancelled_at' => 'datetime',
         ];
     }
 

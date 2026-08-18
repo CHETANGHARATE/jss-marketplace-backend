@@ -189,6 +189,7 @@ Route::prefix('v1')->group(function () {
     Route::get('/products', [ProductController::class, 'index']);
     Route::get('/products/featured', [ProductController::class, 'featured']);
     Route::get('/products/trending', [ProductController::class, 'trending']);
+    Route::get('/products/{id}/frequently-bought-together', [ProductController::class, 'frequentlyBoughtTogether']);
     Route::get('/products/{slug}', [ProductController::class, 'show']);
 
     // Advanced Product Search & Discovery (Module 13)
@@ -246,7 +247,9 @@ Route::prefix('v1')->group(function () {
         Route::prefix('orders')->group(function () {
             Route::get('/', [OrderController::class, 'index']);
             Route::get('/{orderNumber}', [OrderController::class, 'show']);
+            Route::get('/{orderNumber}/invoice', [OrderController::class, 'downloadInvoice']);
             Route::post('/{orderNumber}/cancel', [OrderController::class, 'cancel']);
+            Route::post('/{orderNumber}/items/{itemId}/cancel', [OrderController::class, 'cancelItem']);
             Route::get('/{orderNumber}/shipment', [ShippingController::class, 'orderShipment']);
         });
 
