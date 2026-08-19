@@ -15,16 +15,19 @@ use App\Http\Controllers\Api\V1\Admin\AttributeTemplateController;
 use App\Http\Controllers\Api\V1\Admin\AdminVendorController;
 use App\Http\Controllers\Api\V1\Admin\AdminCmsController;
 use App\Http\Controllers\Api\V1\Admin\AdminStaffController;
+use App\Http\Controllers\Api\V1\AlertController;
 use App\Http\Controllers\Api\V1\AttributeController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BrandController;
 use App\Http\Controllers\Api\V1\CartController;
 use App\Http\Controllers\Api\V1\CategoryController;
+use App\Http\Controllers\Api\V1\FavoriteController;
 use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\InventoryController;
 use App\Http\Controllers\Api\V1\MediaController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\OrderController;
+use App\Http\Controllers\Api\V1\OrderReturnController;
 use App\Http\Controllers\Api\V1\PaymentController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\PromotionController;
@@ -189,6 +192,7 @@ Route::prefix('v1')->group(function () {
     Route::get('/products', [ProductController::class, 'index']);
     Route::get('/products/featured', [ProductController::class, 'featured']);
     Route::get('/products/trending', [ProductController::class, 'trending']);
+    Route::get('/products/compare', [ProductController::class, 'compare']);
     Route::get('/products/{id}/frequently-bought-together', [ProductController::class, 'frequentlyBoughtTogether']);
     Route::get('/products/{slug}', [ProductController::class, 'show']);
 
@@ -222,6 +226,12 @@ Route::prefix('v1')->group(function () {
         Route::delete('/items/{id}', [CartController::class, 'removeItem']);
         Route::post('/clear', [CartController::class, 'clear']);
         
+        // Feature 15: Save for Later endpoints
+        Route::get('/saved-for-later', [CartController::class, 'getSavedForLater']);
+        Route::post('/items/{id}/save-for-later', [CartController::class, 'saveForLater']);
+        Route::post('/saved-for-later/{id}/move-to-cart', [CartController::class, 'moveToCart']);
+        Route::delete('/saved-for-later/{id}', [CartController::class, 'removeSavedItem']);
+
         // Merge guest cart on login
         Route::middleware('auth:sanctum')->post('/merge', [CartController::class, 'merge']);
     });
@@ -290,6 +300,44 @@ Route::prefix('v1')->group(function () {
         // Customer Loyalty Points & Personalized Recommendations (Modules 12, 13)
         Route::get('/loyalty/points', [PromotionController::class, 'loyaltyPoints']);
         Route::get('/recommendations/personalized', [SearchController::class, 'personalized']);
+
+        // Phase 3C: Social & Favorites (Features 65, 66, 67)
+        Route::prefix('favorites')->group(function () {
+            Route::get('/brands', [FavoriteController::class, 'getFavoriteBrands']);
+            Route::post('/brands/{brandId}', [FavoriteController::class, 'addFavoriteBrand']);
+            Route::delete('/brands/{brandId}', [FavoriteController::class, 'removeFavoriteBrand']);
+
+            Route::get('/categories', [FavoriteController::class, 'getFavoriteCategories']);
+            Route::post('/categories/{categoryId}', [FavoriteController::class, 'addFavoriteCategory']);
+            Route::delete('/categories/{categoryId}', [FavoriteController::class, 'removeFavoriteCategory']);
+        });
+
+        // Feature 65: Follow Seller / Store
+        Route::prefix('stores')->group(function () {
+            Route::get('/following', [FavoriteController::class, 'getFollowedStores']);
+            Route::post('/{id}/follow', [FavoriteController::class, 'followStore']);
+            Route::delete('/{id}/unfollow', [FavoriteController::class, 'unfollowStore']);
+        });
+
+        // Phase 3D: Real Price Drop & Back-in-Stock Alerts (Features 40 & 41)
+        Route::prefix('alerts')->group(function () {
+            // Feature 40: Price Drop Alerts
+            Route::get('/price-drop', [AlertController::class, 'getPriceDropAlerts']);
+            Route::post('/price-drop', [AlertController::class, 'subscribePriceDrop']);
+            Route::delete('/price-drop/{productId}', [AlertController::class, 'cancelPriceDrop']);
+
+            // Feature 41: Back-in-Stock Alerts
+            Route::get('/back-in-stock', [AlertController::class, 'getBackInStockSubscriptions']);
+            Route::post('/back-in-stock', [AlertController::class, 'subscribeBackInStock']);
+            Route::delete('/back-in-stock/{productId}', [AlertController::class, 'cancelBackInStock']);
+        });
+
+        // Phase 3E: Order Returns & Reverse Logistics (Features 36 & 37)
+        Route::prefix('returns')->group(function () {
+            Route::get('/', [OrderReturnController::class, 'index']);
+            Route::post('/', [OrderReturnController::class, 'store']);
+            Route::get('/{returnNumber}', [OrderReturnController::class, 'show']);
+        });
 
         // Media Upload Engine (Accessible to authenticated Vendors & Admins)
         Route::post('/media/upload', [MediaController::class, 'upload']);
@@ -382,6 +430,10 @@ Route::prefix('v1')->group(function () {
         Route::get('/orders', [AdminOrderController::class, 'index']);
         Route::get('/orders/{id}', [AdminOrderController::class, 'show']);
         Route::patch('/orders/{id}/status', [AdminOrderController::class, 'updateStatus']);
+
+        // Phase 3E: Admin Order Returns & Reverse Logistics (Features 36 & 37)
+        Route::get('/returns', [OrderReturnController::class, 'adminIndex']);
+        Route::put('/returns/{id}/status', [OrderReturnController::class, 'updateStatus']);
 
         // Admin Payment & Refund Management (Module 7)
         Route::get('/payments', [AdminPaymentController::class, 'index']);

@@ -384,5 +384,136 @@ class ProductController extends Controller
             'data' => ProductResource::collection($fbtProducts),
         ], 200);
     }
+
+    /**
+     * Compare 2 to 4 products side by side (Feature 20).
+     */
+    public function compare(Request $request): JsonResponse
+    {
+        $ids = $request->input('ids', []);
+        if (is_string($ids)) {
+            $ids = array_filter(explode(',', $ids));
+        }
+
+        $ids = array_values(array_unique(array_filter(array_map('intval', (array) $ids))));
+
+        if (count($ids) < 2) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Please select at least 2 products to compare.',
+            ], 422);
+        }
+
+        if (count($ids) > 4) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You can compare a maximum of 4 products at a time.',
+            ], 422);
+        }
+
+        $products = Product::approved()
+            ->whereIn('id', $ids)
+            ->with([
+                'category',
+                'subcategory',
+                'brand',
+                'seller.vendorStore',
+                'primaryImage',
+                'images',
+                'specifications',
+                'attributeValues.attribute',
+                'reviews',
+            ])
+            ->get();
+
+        if ($products->count() < 2) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not find at least 2 active products for the provided IDs.',
+            ], 404);
+        }
+
+        $comparisonData = $products->map(function ($product) {
+            $specs = [];
+            if ($product->specifications) {
+                foreach ($product->specifications as $spec) {
+                    $specs[$spec->name] = $spec->value;
+                }
+            }
+            if ($product->attributeValues) {
+                foreach ($product->attributeValues as $attrVal) {
+                    if ($attrVal->attribute) {
+                        $specs[$attrVal->attribute->name] = $attrVal->value;
+                    }
+                }
+            }
+
+            $currentPrice = (float) ($product->sale_price ?? $product->price);
+            $originalPrice = (float) ($product->original_price ?? $product->price);
+            $discount = $originalPrice > $currentPrice
+                ? round((($originalPrice - $currentPrice) / $originalPrice) * 100)
+                : 0;
+
+            return [
+                'id' => $product->id,
+                'name' => $product->name,
+                'slug' => $product->slug,
+                'sku' => $product->sku,
+                'image' => $product->primaryImage?->url ?? $product->main_image ?? '/images/placeholder.png',
+                'price' => $currentPrice,
+                'original_price' => $originalPrice,
+                'discount_percentage' => $discount,
+                'rating' => (float) ($product->avg_rating ?? ($product->reviews()->avg('rating') ?: 0)),
+                'reviews_count' => (int) ($product->reviews_count ?? $product->reviews()->count()),
+                'brand' => $product->brand ? [
+                    'id' => $product->brand->id,
+                    'name' => $product->brand->name,
+                    'slug' => $product->brand->slug,
+                ] : null,
+                'category' => $product->category ? [
+                    'id' => $product->category->id,
+                    'name' => $product->category->name,
+                    'slug' => $product->category->slug,
+                ] : null,
+                'seller' => [
+                    'id' => $product->seller_id,
+                    'name' => $product->seller?->name ?? 'JSS Certified Seller',
+                    'store_name' => $product->seller?->vendorStore?->store_name ?? 'Official Store',
+                    'rating' => $product->seller?->vendorStore?->rating ?? 4.8,
+                ],
+                'in_stock' => $product->stock_quantity > 0,
+                'stock_quantity' => $product->stock_quantity,
+                'delivery_info' => [
+                    'estimated_days' => 3,
+                    'free_delivery' => $currentPrice >= 499,
+                    'cod_available' => true,
+                ],
+                'offers' => [
+                    'Save 5% with JSS Coins',
+                    'Standard delivery across India',
+                ],
+                'specifications' => $specs,
+                'summary' => $product->short_description ?? Str::limit(strip_tags($product->description ?? ''), 120),
+            ];
+        });
+
+        $allSpecKeys = [];
+        foreach ($comparisonData as $item) {
+            foreach (array_keys($item['specifications']) as $k) {
+                if (!in_array($k, $allSpecKeys)) {
+                    $allSpecKeys[] = $k;
+                }
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'products' => $comparisonData,
+                'specification_keys' => $allSpecKeys,
+                'count' => $comparisonData->count(),
+            ],
+        ], 200);
+    }
 }
 

@@ -8,6 +8,9 @@ use App\Http\Requests\MergeCartRequest;
 use App\Http\Requests\UpdateCartItemRequest;
 use App\Http\Resources\CartResource;
 use App\Models\Cart;
+use App\Models\CartItem;
+use App\Models\Product;
+use App\Models\SavedCartItem;
 use App\Services\CartMergeService;
 use App\Services\CartService;
 use Illuminate\Http\JsonResponse;
@@ -156,6 +159,195 @@ class CartController extends Controller
         return response()->json([
             'success' => true,
             'data' => CartResource::collection($abandoned),
+        ], 200);
+    }
+
+    /**
+     * Fetch saved for later items (Feature 15).
+     */
+    public function getSavedForLater(Request $request): JsonResponse
+    {
+        $userId = auth('sanctum')->id();
+        if (!$userId) {
+            return response()->json([
+                'success' => true,
+                'data' => [],
+                'count' => 0,
+            ], 200);
+        }
+
+        $savedItems = SavedCartItem::where('user_id', $userId)
+            ->with(['product.primaryImage', 'product.brand', 'product.category'])
+            ->latest('saved_at')
+            ->get();
+
+        $data = $savedItems->map(function ($item) {
+            $product = $item->product;
+            if (!$product) {
+                return null;
+            }
+
+            $currentPrice = (float) ($product->sale_price ?? $product->price);
+            $savedPrice = (float) $item->price_snapshot;
+            $priceChanged = abs($currentPrice - $savedPrice) > 0.01;
+
+            return [
+                'id' => $item->id,
+                'product_id' => $product->id,
+                'name' => $product->name,
+                'slug' => $product->slug,
+                'image' => $product->primaryImage?->url ?? $product->main_image ?? '/images/placeholder.png',
+                'quantity' => $item->quantity,
+                'current_price' => $currentPrice,
+                'saved_price' => $savedPrice,
+                'price_changed' => $priceChanged,
+                'price_difference' => round($currentPrice - $savedPrice, 2),
+                'in_stock' => $product->stock_quantity > 0,
+                'stock_quantity' => $product->stock_quantity,
+                'is_active' => $product->status === 'approved',
+                'saved_at' => $item->saved_at,
+                'brand' => $product->brand?->name,
+                'category' => $product->category?->name,
+            ];
+        })->filter()->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => $data,
+            'count' => $data->count(),
+        ], 200);
+    }
+
+    /**
+     * Move an active cart item to Saved for Later (Feature 15).
+     */
+    public function saveForLater(Request $request, int $itemId): JsonResponse
+    {
+        $userId = auth('sanctum')->id();
+        if (!$userId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Please log in to save items for later.',
+            ], 401);
+        }
+
+        $cart = $this->resolveCart($request);
+        $cartItem = CartItem::where('cart_id', $cart->id)
+            ->where('id', $itemId)
+            ->first();
+
+        if (!$cartItem) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cart item not found.',
+            ], 404);
+        }
+
+        $product = Product::find($cartItem->product_id);
+        $livePrice = $product ? (float) ($product->sale_price ?? $product->price) : (float) $cartItem->unit_price;
+
+        SavedCartItem::updateOrCreate(
+            [
+                'user_id' => $userId,
+                'product_id' => $cartItem->product_id,
+            ],
+            [
+                'quantity' => $cartItem->quantity,
+                'price_snapshot' => $livePrice,
+                'saved_at' => now(),
+            ]
+        );
+
+        $this->cartService->removeItem($cart, $itemId);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Item moved to Saved for Later.',
+            'data' => new CartResource($cart->fresh(['items.product.primaryImage', 'items.product.category', 'items.product.brand'])),
+        ], 200);
+    }
+
+    /**
+     * Move saved item back into active Cart with live revalidation (Feature 15).
+     */
+    public function moveToCart(Request $request, int $savedId): JsonResponse
+    {
+        $userId = auth('sanctum')->id();
+        if (!$userId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Please log in to manage your cart.',
+            ], 401);
+        }
+
+        $savedItem = SavedCartItem::where('id', $savedId)
+            ->where('user_id', $userId)
+            ->with('product')
+            ->first();
+
+        if (!$savedItem || !$savedItem->product) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Saved item not found.',
+            ], 404);
+        }
+
+        $product = $savedItem->product;
+
+        // Revalidate active status
+        if ($product->status !== 'approved') {
+            return response()->json([
+                'success' => false,
+                'message' => 'This product is no longer available.',
+            ], 422);
+        }
+
+        // Revalidate stock
+        if ($product->stock_quantity <= 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This product is currently out of stock.',
+            ], 422);
+        }
+
+        $cart = $this->resolveCart($request);
+        $livePrice = (float) ($product->sale_price ?? $product->price);
+        $qtyToAdd = min($savedItem->quantity, $product->stock_quantity);
+
+        $this->cartService->addItem($cart, $product, $qtyToAdd, $livePrice);
+        $savedItem->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Item moved to your active cart.',
+            'data' => new CartResource($cart->fresh(['items.product.primaryImage', 'items.product.category', 'items.product.brand'])),
+        ], 200);
+    }
+
+    /**
+     * Remove item from Saved for Later (Feature 15).
+     */
+    public function removeSavedItem(Request $request, int $savedId): JsonResponse
+    {
+        $userId = auth('sanctum')->id();
+        if (!$userId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Please log in to manage saved items.',
+            ], 401);
+        }
+
+        $savedItem = SavedCartItem::where('id', $savedId)
+            ->where('user_id', $userId)
+            ->first();
+
+        if ($savedItem) {
+            $savedItem->delete();
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Item removed from Saved for Later.',
         ], 200);
     }
 }

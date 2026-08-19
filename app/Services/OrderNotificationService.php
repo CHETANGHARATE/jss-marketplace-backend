@@ -114,6 +114,59 @@ class OrderNotificationService
     }
 
     /**
+     * Notify customer on return and refund status updates (Features 36, 37, 39).
+     */
+    public function sendReturnStatusNotification(\App\Models\OrderReturn $orderReturn): void
+    {
+        $customer = $orderReturn->user;
+        $returnNum = $orderReturn->return_number;
+        $status = $orderReturn->status;
+        $amount = number_format((float) $orderReturn->refund_amount, 2);
+
+        $titles = [
+            'requested' => "Return Request Submitted: #{$returnNum}",
+            'approved' => "Return Approved for #{$returnNum} 🎉",
+            'pickup_scheduled' => "Reverse Pickup Scheduled: #{$returnNum}",
+            'picked_up' => "Return Item Picked Up: #{$returnNum}",
+            'received' => "Return Package Received at Warehouse",
+            'inspected' => "Return Quality Inspection Completed",
+            'approved_for_refund' => "Refund Approved for Return #{$returnNum}",
+            'refund_processing' => "Refund Processing for Return #{$returnNum}",
+            'refunded' => "₹{$amount} Refund Credited Successfully! 💰",
+            'rejected' => "Return Request Update: #{$returnNum}",
+        ];
+
+        $messages = [
+            'requested' => "Your return request #{$returnNum} for ₹{$amount} has been received and is currently under verification.",
+            'approved' => "Your return request #{$returnNum} has been approved. Our courier partner will schedule pickup shortly.",
+            'pickup_scheduled' => "A reverse pickup has been scheduled for your return #{$returnNum} with our courier partner.",
+            'picked_up' => "Your item for return #{$returnNum} has been picked up and is on its way to the fulfillment center.",
+            'received' => "Your return package #{$returnNum} has reached our fulfillment center for quality inspection.",
+            'inspected' => "Quality inspection for return #{$returnNum} has passed successfully.",
+            'approved_for_refund' => "Refund of ₹{$amount} for return #{$returnNum} has been approved.",
+            'refund_processing' => "Your refund of ₹{$amount} for return #{$returnNum} is being processed to your original payment method.",
+            'refunded' => "Great news! Your refund of ₹{$amount} for return #{$returnNum} has been successfully processed and credited.",
+            'rejected' => "Your return request #{$returnNum} was not approved. Reason: " . ($orderReturn->rejection_reason ?? 'Does not meet return policy criteria.'),
+        ];
+
+        $title = $titles[$status] ?? "Return #{$returnNum} Status Update";
+        $message = $messages[$status] ?? "Your return request status is now: " . ucfirst(str_replace('_', ' ', $status));
+
+        $this->dispatchMultiChannelNotification(
+            $customer,
+            'return_status_' . $status,
+            $title,
+            $message,
+            [
+                'return_number' => $returnNum,
+                'status' => $status,
+                'refund_amount' => $orderReturn->refund_amount,
+            ],
+            $orderReturn->pickup_address_snapshot['phone'] ?? $customer?->mobile ?? null
+        );
+    }
+
+    /**
      * Core multi-channel notification dispatcher (In-app, Email, SMS, WhatsApp).
      */
     protected function dispatchMultiChannelNotification(

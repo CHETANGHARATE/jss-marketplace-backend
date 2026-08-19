@@ -12,6 +12,7 @@ use App\Http\Resources\VendorStoreResource;
 use App\Http\Resources\VendorWalletResource;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Models\StoreFollower;
 use App\Models\VendorStore;
 use App\Services\VendorCommissionService;
 use App\Services\VendorStoreService;
@@ -50,15 +51,23 @@ class VendorStoreController extends Controller
     /**
      * Public vendor storefront profile and products.
      */
-    public function show(string $slug): JsonResponse
+    public function show(Request $request, string $slug): JsonResponse
     {
         $store = VendorStore::where('slug', $slug)->where('status', 'active')->firstOrFail();
-        $products = Product::where('seller_id', $store->user_id)->where('status', 'published')->paginate(12);
+        $products = Product::where('seller_id', $store->user_id)->whereIn('status', ['approved', 'published'])->paginate(12);
+
+        $userId = auth('sanctum')->id();
+        $isFollowing = $userId ? StoreFollower::where('user_id', $userId)->where('vendor_store_id', $store->id)->exists() : false;
+        $followersCount = StoreFollower::where('vendor_store_id', $store->id)->count();
+
+        $storeData = (new VendorStoreResource($store))->resolve();
+        $storeData['followers_count'] = $followersCount;
+        $storeData['is_following'] = $isFollowing;
 
         return response()->json([
             'success' => true,
             'data' => [
-                'store' => new VendorStoreResource($store),
+                'store' => $storeData,
                 'products' => ProductResource::collection($products),
             ],
         ], 200);

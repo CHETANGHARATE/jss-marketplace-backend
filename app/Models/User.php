@@ -159,4 +159,39 @@ class User extends Authenticatable
     {
         return $this->hasOne(VendorStore::class, 'user_id');
     }
+
+    public function savedCartItems(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(SavedCartItem::class, 'user_id');
+    }
+
+    public function followedStores(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(StoreFollower::class, 'user_id');
+    }
+
+    public function favoriteBrands(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(UserFavoriteBrand::class, 'user_id');
+    }
+
+    public function favoriteCategories(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(UserFavoriteCategory::class, 'user_id');
+    }
+
+    public function priceDropAlerts(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(PriceDropAlert::class, 'user_id');
+    }
+
+    public function backInStockSubscriptions(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(BackInStockSubscription::class, 'user_id');
+    }
+
+    public function returns(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(OrderReturn::class, 'user_id');
+    }
 }
