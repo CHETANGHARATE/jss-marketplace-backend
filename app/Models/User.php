@@ -194,4 +194,24 @@ class User extends Authenticatable
     {
         return $this->hasMany(OrderReturn::class, 'user_id');
     }
+
+    public function businessAccount(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(BusinessAccount::class, 'user_id');
+    }
+
+    public function creditAccount(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(BusinessCreditAccount::class, 'user_id');
+    }
+
+    public function rfqs(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Rfq::class, 'user_id');
+    }
+
+    public function purchaseOrders(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(PurchaseOrder::class, 'buyer_id');
+    }
 }

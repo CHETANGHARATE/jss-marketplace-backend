@@ -31,6 +31,8 @@ class Product extends Model
         'offer_price',
         'discount_percent',
         'cost_price',
+        'is_wholesale_enabled',
+        'wholesale_moq',
         'gst_percent',
         'tax_inclusive',
         'stock_status',
@@ -208,6 +210,14 @@ class Product extends Model
     public function media(): MorphMany
     {
         return $this->morphMany(Media::class, 'model')->orderBy('sort_order', 'asc');
+    }
+
+    /**
+     * B2B / Wholesale Volume Price Tiers (Feature 50).
+     */
+    public function priceTiers(): HasMany
+    {
+        return $this->hasMany(ProductPriceTier::class, 'product_id')->where('is_active', true)->orderBy('min_quantity', 'asc');
     }
 
     /**

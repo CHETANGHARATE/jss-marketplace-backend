@@ -18,7 +18,10 @@ use App\Http\Controllers\Api\V1\Admin\AdminStaffController;
 use App\Http\Controllers\Api\V1\AlertController;
 use App\Http\Controllers\Api\V1\AttributeController;
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\B2BMarketplaceController;
 use App\Http\Controllers\Api\V1\BrandController;
+use App\Http\Controllers\Api\V1\BusinessAccountController;
+use App\Http\Controllers\Api\V1\BusinessCreditController;
 use App\Http\Controllers\Api\V1\CartController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\FavoriteController;
@@ -30,9 +33,14 @@ use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\OrderReturnController;
 use App\Http\Controllers\Api\V1\PaymentController;
 use App\Http\Controllers\Api\V1\ProductController;
+use App\Http\Controllers\Api\V1\ProductTierController;
+use App\Http\Controllers\Api\V1\ProformaInvoiceController;
 use App\Http\Controllers\Api\V1\PromotionController;
+use App\Http\Controllers\Api\V1\PurchaseOrderController;
 use App\Http\Controllers\Api\V1\QuestionController;
 use App\Http\Controllers\Api\V1\ReviewController;
+use App\Http\Controllers\Api\V1\RfqController;
+use App\Http\Controllers\Api\V1\QuotationController;
 use App\Http\Controllers\Api\V1\SearchController;
 use App\Http\Controllers\Api\V1\SettingController;
 use App\Http\Controllers\Api\V1\ShippingController;
@@ -194,7 +202,12 @@ Route::prefix('v1')->group(function () {
     Route::get('/products/trending', [ProductController::class, 'trending']);
     Route::get('/products/compare', [ProductController::class, 'compare']);
     Route::get('/products/{id}/frequently-bought-together', [ProductController::class, 'frequentlyBoughtTogether']);
+    Route::get('/products/{id}/tiers', [ProductTierController::class, 'getTiers']);
+    Route::get('/products/{id}/calculate-price', [ProductTierController::class, 'calculatePrice']);
     Route::get('/products/{slug}', [ProductController::class, 'show']);
+
+    // Public Wholesale & B2B (Features 50 & 86)
+    Route::get('/b2b/requirements', [B2BMarketplaceController::class, 'listRequirements']);
 
     // Advanced Product Search & Discovery (Module 13)
     Route::get('/search', [SearchController::class, 'search']);
@@ -339,6 +352,57 @@ Route::prefix('v1')->group(function () {
             Route::get('/{returnNumber}', [OrderReturnController::class, 'show']);
         });
 
+        // Phase 4: B2B / Wholesale / Business Marketplace Engine
+        // Feature 92 & 93: Business Account & Verification
+        Route::prefix('business')->group(function () {
+            Route::get('/account', [BusinessAccountController::class, 'getAccount']);
+            Route::post('/account', [BusinessAccountController::class, 'storeOrUpdate']);
+        });
+
+        // Features 51 & 82: Request for Quotation (RFQ)
+        Route::prefix('rfq')->group(function () {
+            Route::get('/', [RfqController::class, 'index']);
+            Route::post('/', [RfqController::class, 'store']);
+            Route::get('/{rfqNumber}', [RfqController::class, 'show']);
+        });
+
+        // Feature 83 & Negotiation: Quotations & Counter Offers
+        Route::prefix('quotations')->group(function () {
+            Route::post('/{id}/counter', [QuotationController::class, 'counterOffer']);
+            Route::post('/{id}/accept', [QuotationController::class, 'acceptQuotation']);
+            Route::post('/{id}/reject', [QuotationController::class, 'rejectQuotation']);
+        });
+
+        // Feature 88: Purchase Orders
+        Route::prefix('purchase-orders')->group(function () {
+            Route::get('/', [PurchaseOrderController::class, 'index']);
+            Route::post('/', [PurchaseOrderController::class, 'store']);
+            Route::get('/{poNumber}', [PurchaseOrderController::class, 'show']);
+            Route::get('/{poNumber}/pdf', [PurchaseOrderController::class, 'downloadPdf']);
+        });
+
+        // Feature 95: Proforma Invoices
+        Route::prefix('proforma-invoices')->group(function () {
+            Route::get('/', [ProformaInvoiceController::class, 'index']);
+            Route::post('/', [ProformaInvoiceController::class, 'store']);
+            Route::get('/{proformaNumber}', [ProformaInvoiceController::class, 'show']);
+            Route::get('/{proformaNumber}/pdf', [ProformaInvoiceController::class, 'downloadPdf']);
+        });
+
+        // Feature 94: Business Credit / Pay-Later
+        Route::prefix('business-credit')->group(function () {
+            Route::get('/', [BusinessCreditController::class, 'getAccount']);
+            Route::post('/apply', [BusinessCreditController::class, 'apply']);
+        });
+
+        // Features 84, 85, 86, 87: Samples & Requirements
+        Route::prefix('b2b')->group(function () {
+            Route::post('/requirements', [B2BMarketplaceController::class, 'postRequirement']);
+            Route::post('/requirements/{id}/bid', [B2BMarketplaceController::class, 'bidOnRequirement']);
+            Route::post('/samples', [B2BMarketplaceController::class, 'requestSample']);
+            Route::get('/samples', [B2BMarketplaceController::class, 'listSampleRequests']);
+        });
+
         // Media Upload Engine (Accessible to authenticated Vendors & Admins)
         Route::post('/media/upload', [MediaController::class, 'upload']);
 
@@ -361,6 +425,13 @@ Route::prefix('v1')->group(function () {
             Route::get('/wallet', [VendorStoreController::class, 'wallet']);
             Route::get('/analytics', [VendorStoreController::class, 'analytics']);
             Route::post('/settlements/request', [VendorStoreController::class, 'requestSettlement']);
+
+            // Phase 4 Vendor B2B Operations
+            Route::get('/rfq/inbox', [RfqController::class, 'sellerInbox']);
+            Route::post('/rfq/{id}/quote', [QuotationController::class, 'submitQuotation']);
+            Route::post('/purchase-orders/{id}/accept', [PurchaseOrderController::class, 'accept']);
+            Route::patch('/samples/{id}/status', [B2BMarketplaceController::class, 'updateSampleStatus']);
+            Route::put('/products/{id}/tiers', [ProductTierController::class, 'syncTiers']);
         });
     });
 
@@ -533,5 +604,15 @@ Route::prefix('v1')->group(function () {
         Route::post('/staff', [AdminStaffController::class, 'storeStaff']);
         Route::put('/staff/{id}', [AdminStaffController::class, 'updateStaff']);
         Route::delete('/staff/{id}', [AdminStaffController::class, 'destroyStaff']);
+
+        // Phase 4: Admin B2B Management
+        Route::get('/business/buyers', [BusinessAccountController::class, 'adminList']);
+        Route::get('/business/buyers/{id}', [BusinessAccountController::class, 'adminShow']);
+        Route::patch('/business/buyers/{id}/verify', [BusinessAccountController::class, 'adminVerify']);
+        Route::get('/business-credit', [BusinessCreditController::class, 'adminList']);
+        Route::patch('/business-credit/{id}/approve', [BusinessCreditController::class, 'adminApproveLimit']);
+        Route::post('/business-credit/{id}/repayment', [BusinessCreditController::class, 'recordRepayment']);
+        Route::get('/rfqs', [RfqController::class, 'adminIndex']);
+        Route::put('/products/{id}/tiers', [ProductTierController::class, 'syncTiers']);
     });
 });
