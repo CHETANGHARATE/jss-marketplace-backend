@@ -201,4 +201,93 @@ class AlertController extends Controller
             'message' => 'Back in stock alert cancelled.',
         ], 200);
     }
+
+    /**
+     * Get user's product launch subscriptions (Feature 123).
+     */
+    public function getProductLaunchSubscriptions(Request $request): JsonResponse
+    {
+        $userId = $request->user()->id;
+
+        $subs = \App\Models\ProductLaunchSubscription::where('user_id', $userId)
+            ->with(['product.primaryImage', 'product.brand'])
+            ->latest('subscribed_at')
+            ->get();
+
+        $data = $subs->map(function ($sub) {
+            $product = $sub->product;
+            if (!$product) return null;
+
+            return [
+                'id' => $sub->id,
+                'product_id' => $product->id,
+                'product_name' => $product->name,
+                'product_slug' => $product->slug,
+                'product_image' => $product->primaryImage?->url ?? $product->main_image ?? '/images/placeholder.png',
+                'brand' => $product->brand?->name,
+                'status' => $sub->status,
+                'subscribed_at' => $sub->subscribed_at,
+                'notified_at' => $sub->notified_at,
+            ];
+        })->filter()->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => $data,
+            'count' => $data->count(),
+        ], 200);
+    }
+
+    /**
+     * Subscribe to product launch alert (Feature 123).
+     */
+    public function subscribeProductLaunch(Request $request): JsonResponse
+    {
+        $userId = $request->user()->id;
+
+        $validated = $request->validate([
+            'product_id' => 'required|exists:products,id',
+        ]);
+
+        $product = Product::findOrFail($validated['product_id']);
+
+        $subscription = \App\Models\ProductLaunchSubscription::updateOrCreate(
+            [
+                'user_id' => $userId,
+                'product_id' => $product->id,
+            ],
+            [
+                'status' => 'active',
+                'subscribed_at' => now(),
+                'notified_at' => null,
+            ]
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => "You will be notified immediately when '{$product->name}' launches.",
+            'data' => [
+                'id' => $subscription->id,
+                'product_id' => $product->id,
+                'status' => $subscription->status,
+            ],
+        ], 200);
+    }
+
+    /**
+     * Cancel product launch subscription (Feature 123).
+     */
+    public function cancelProductLaunch(Request $request, int $productId): JsonResponse
+    {
+        $userId = $request->user()->id;
+
+        \App\Models\ProductLaunchSubscription::where('user_id', $userId)
+            ->where('product_id', $productId)
+            ->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Product launch notification cancelled.',
+        ], 200);
+    }
 }

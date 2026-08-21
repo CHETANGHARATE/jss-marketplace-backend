@@ -214,4 +214,19 @@ class User extends Authenticatable
     {
         return $this->hasMany(PurchaseOrder::class, 'buyer_id');
     }
+
+    public function notificationPreferences(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(UserNotificationPreference::class, 'user_id');
+    }
+
+    public function notificationLogs(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(NotificationLog::class, 'user_id');
+    }
+
+    public function productLaunchSubscriptions(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ProductLaunchSubscription::class, 'user_id');
+    }
 }

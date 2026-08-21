@@ -15,6 +15,9 @@ use App\Http\Controllers\Api\V1\Admin\AttributeTemplateController;
 use App\Http\Controllers\Api\V1\Admin\AdminVendorController;
 use App\Http\Controllers\Api\V1\Admin\AdminCmsController;
 use App\Http\Controllers\Api\V1\Admin\AdminStaffController;
+use App\Http\Controllers\Api\V1\Admin\AdminNotificationTemplateController;
+use App\Http\Controllers\Api\V1\Admin\AdminNotificationLogController;
+use App\Http\Controllers\Api\V1\NotificationPreferenceController;
 use App\Http\Controllers\Api\V1\AlertController;
 use App\Http\Controllers\Api\V1\AttributeController;
 use App\Http\Controllers\Api\V1\AuthController;
@@ -303,11 +306,13 @@ Route::prefix('v1')->group(function () {
             Route::post('/{ticketNumber}/reply', [SupportTicketController::class, 'reply']);
         });
 
-        // Customer Notifications Engine (Module 10)
+        // Customer Notifications Engine (Module 10 & Phase 5)
         Route::prefix('notifications')->group(function () {
             Route::get('/', [NotificationController::class, 'index']);
             Route::patch('/{id}/read', [NotificationController::class, 'markAsRead']);
             Route::post('/read-all', [NotificationController::class, 'markAllAsRead']);
+            Route::get('/preferences', [NotificationPreferenceController::class, 'getPreferences']);
+            Route::put('/preferences', [NotificationPreferenceController::class, 'updatePreferences']);
         });
 
         // Customer Loyalty Points & Personalized Recommendations (Modules 12, 13)
@@ -332,7 +337,7 @@ Route::prefix('v1')->group(function () {
             Route::delete('/{id}/unfollow', [FavoriteController::class, 'unfollowStore']);
         });
 
-        // Phase 3D: Real Price Drop & Back-in-Stock Alerts (Features 40 & 41)
+        // Phase 3D & 5B: Real Price Drop, Back-in-Stock & Launch Alerts (Features 40, 41, 123)
         Route::prefix('alerts')->group(function () {
             // Feature 40: Price Drop Alerts
             Route::get('/price-drop', [AlertController::class, 'getPriceDropAlerts']);
@@ -343,6 +348,11 @@ Route::prefix('v1')->group(function () {
             Route::get('/back-in-stock', [AlertController::class, 'getBackInStockSubscriptions']);
             Route::post('/back-in-stock', [AlertController::class, 'subscribeBackInStock']);
             Route::delete('/back-in-stock/{productId}', [AlertController::class, 'cancelBackInStock']);
+
+            // Feature 123: Product Launch Alerts
+            Route::get('/launch', [AlertController::class, 'getProductLaunchSubscriptions']);
+            Route::post('/launch', [AlertController::class, 'subscribeProductLaunch']);
+            Route::delete('/launch/{productId}', [AlertController::class, 'cancelProductLaunch']);
         });
 
         // Phase 3E: Order Returns & Reverse Logistics (Features 36 & 37)
@@ -614,5 +624,15 @@ Route::prefix('v1')->group(function () {
         Route::post('/business-credit/{id}/repayment', [BusinessCreditController::class, 'recordRepayment']);
         Route::get('/rfqs', [RfqController::class, 'adminIndex']);
         Route::put('/products/{id}/tiers', [ProductTierController::class, 'syncTiers']);
+
+        // Phase 5: Admin Notification Engine (Templates & Delivery Logs)
+        Route::prefix('notifications')->group(function () {
+            Route::get('/templates', [AdminNotificationTemplateController::class, 'index']);
+            Route::get('/templates/{id}', [AdminNotificationTemplateController::class, 'show']);
+            Route::put('/templates/{id}', [AdminNotificationTemplateController::class, 'update']);
+            Route::get('/logs', [AdminNotificationLogController::class, 'index']);
+            Route::get('/stats', [AdminNotificationLogController::class, 'stats']);
+            Route::post('/logs/{id}/retry', [AdminNotificationLogController::class, 'retry']);
+        });
     });
 });
