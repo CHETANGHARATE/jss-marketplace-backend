@@ -62,6 +62,12 @@ class Product extends Model
         'reviews_count',
         'is_featured',
         'is_trending',
+        'is_ar_enabled',
+        'ar_model_glb',
+        'ar_model_usdz',
+        'is_try_on_enabled',
+        'try_on_category',
+        'image_signature',
         'is_active',
         'status',
         'rejection_reason',
@@ -80,6 +86,7 @@ class Product extends Model
             'ai_seo' => 'array',
             'ai_highlights' => 'array',
             'ai_keywords' => 'array',
+            'image_signature' => 'array',
             'original_price' => 'decimal:2',
             'offer_price' => 'decimal:2',
             'cost_price' => 'decimal:2',
@@ -95,6 +102,8 @@ class Product extends Model
             'reviews_count' => 'integer',
             'is_featured' => 'boolean',
             'is_trending' => 'boolean',
+            'is_ar_enabled' => 'boolean',
+            'is_try_on_enabled' => 'boolean',
             'is_active' => 'boolean',
         ];
     }
@@ -218,6 +227,24 @@ class Product extends Model
     public function priceTiers(): HasMany
     {
         return $this->hasMany(ProductPriceTier::class, 'product_id')->where('is_active', true)->orderBy('min_quantity', 'asc');
+    }
+
+    /**
+     * 360 Degree Image Frames (Feature 159).
+     */
+    public function threeSixtyMedia(): HasMany
+    {
+        return $this->hasMany(Product360Media::class, 'product_id')->where('is_active', true)->orderBy('sort_order', 'asc');
+    }
+
+    /**
+     * Live Stream Sessions featuring this product (Feature 161).
+     */
+    public function liveSessions(): BelongsToMany
+    {
+        return $this->belongsToMany(LiveSession::class, 'live_session_products', 'product_id', 'live_session_id')
+            ->withPivot('is_pinned', 'special_live_price', 'sort_order')
+            ->withTimestamps();
     }
 
     /**

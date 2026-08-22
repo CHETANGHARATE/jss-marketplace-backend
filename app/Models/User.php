@@ -229,4 +229,19 @@ class User extends Authenticatable
     {
         return $this->hasMany(ProductLaunchSubscription::class, 'user_id');
     }
+
+    public function passkeyCredentials(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(PasskeyCredential::class, 'user_id');
+    }
+
+    public function liveSessions(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(LiveSession::class, 'seller_id');
+    }
+
+    public function aiConversations(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(AiConversation::class, 'user_id');
+    }
 }

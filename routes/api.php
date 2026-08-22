@@ -52,6 +52,12 @@ use App\Http\Controllers\Api\V1\SupportTicketController;
 use App\Http\Controllers\Api\V1\VendorStoreController;
 use App\Http\Controllers\Api\V1\WarehouseController;
 use App\Http\Controllers\Api\V1\WishlistController;
+use App\Http\Controllers\Api\V1\AiAssistantController;
+use App\Http\Controllers\Api\V1\VisualSearchController;
+use App\Http\Controllers\Api\V1\VirtualTryOnController;
+use App\Http\Controllers\Api\V1\LiveShoppingController;
+use App\Http\Controllers\Api\V1\PasskeyController;
+use App\Http\Controllers\Api\V1\ProductMedia360Controller;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -634,5 +640,51 @@ Route::prefix('v1')->group(function () {
             Route::get('/stats', [AdminNotificationLogController::class, 'stats']);
             Route::post('/logs/{id}/retry', [AdminNotificationLogController::class, 'retry']);
         });
+    });
+
+    // =========================================================================
+    // PHASE 6: ADVANCED / P3 COMMERCE SUITE
+    // =========================================================================
+
+    // 1. Feature 57: AI Shopping Assistant
+    Route::post('/ai/chat', [AiAssistantController::class, 'chat']);
+    Route::get('/ai/history', [AiAssistantController::class, 'history']);
+    Route::delete('/ai/history', [AiAssistantController::class, 'clear']);
+
+    // 2. Features 59 + 61: Visual & Image Search
+    Route::post('/search/visual', [VisualSearchController::class, 'search']);
+
+    // 3. Feature 156: Virtual Try-On
+    Route::get('/try-on/eligibility/{productId}', [VirtualTryOnController::class, 'eligibility']);
+    Route::post('/try-on/generate', [VirtualTryOnController::class, 'generate']);
+
+    // 4. Features 157, 158, 159: AR & 360° Media Assets
+    Route::get('/products/{id}/media-360-ar', [ProductMedia360Controller::class, 'get360AndAr']);
+
+    // 5. Feature 161: Live Shopping Sessions
+    Route::get('/live-sessions', [LiveShoppingController::class, 'index']);
+    Route::get('/live-sessions/{idOrSlug}', [LiveShoppingController::class, 'show']);
+    Route::post('/live-sessions/{id}/join', [LiveShoppingController::class, 'join']);
+    Route::post('/live-sessions/{id}/like', [LiveShoppingController::class, 'like']);
+
+    // 6. Feature 171: Passkey / WebAuthn Public Authentication
+    Route::get('/auth/passkey/login-options', [PasskeyController::class, 'generateLoginOptions']);
+    Route::post('/auth/passkey/verify-login', [PasskeyController::class, 'verifyLogin']);
+
+    // Phase 6 Authenticated Endpoints
+    Route::middleware('auth:sanctum')->group(function () {
+        // Passkey Registration & Management
+        Route::get('/auth/passkey/register-options', [PasskeyController::class, 'generateRegisterOptions']);
+        Route::post('/auth/passkey/verify-register', [PasskeyController::class, 'verifyRegister']);
+        Route::get('/auth/passkeys', [PasskeyController::class, 'index']);
+        Route::delete('/auth/passkeys/{id}', [PasskeyController::class, 'destroy']);
+
+        // Seller/Admin AR & 360 Asset Management
+        Route::post('/products/{id}/media-360', [ProductMedia360Controller::class, 'uploadFrames']);
+        Route::put('/products/{id}/ar', [ProductMedia360Controller::class, 'updateAr']);
+
+        // Seller Live Sessions
+        Route::post('/seller/live-sessions', [LiveShoppingController::class, 'store']);
+        Route::patch('/seller/live-sessions/{id}/status', [LiveShoppingController::class, 'updateStatus']);
     });
 });
