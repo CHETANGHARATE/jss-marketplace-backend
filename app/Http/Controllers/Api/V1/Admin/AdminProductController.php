@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\ProductResource;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\ProductImage;
+use App\Services\ImageOptimizationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -180,13 +182,21 @@ class AdminProductController extends Controller
             $product = DB::transaction(function () use ($productData, $validated, $sku) {
                 $product = Product::create($productData);
 
-                // Attach images
+                // Attach images with automatic optimization pipeline
                 if (!empty($validated['images'])) {
                     foreach (array_slice(array_filter($validated['images']), 0, 10) as $index => $url) {
-                        $cleanUrl = $this->saveImageFromUrlOrBase64($url);
-                        \App\Models\ProductImage::create([
+                        $processed = ImageOptimizationService::processImage($url, $product->id);
+                        $cleanUrl = $processed['original_url'] ?? $this->saveImageFromUrlOrBase64($url);
+                        $variants = $processed['variants'] ?? null;
+
+                        ProductImage::create([
                             'product_id' => $product->id,
                             'image_url' => $cleanUrl,
+                            'variants' => $variants,
+                            'width' => $processed['width'] ?? null,
+                            'height' => $processed['height'] ?? null,
+                            'file_size' => $processed['file_size'] ?? null,
+                            'format' => $processed['format'] ?? null,
                             'is_primary' => ($index === 0),
                             'sort_order' => $index,
                         ]);
@@ -356,10 +366,18 @@ class AdminProductController extends Controller
         if (is_array($images)) {
             $product->images()->delete();
             foreach (array_slice(array_filter($images), 0, 10) as $index => $url) {
-                $cleanUrl = $this->saveImageFromUrlOrBase64($url);
-                \App\Models\ProductImage::create([
+                $processed = ImageOptimizationService::processImage($url, $product->id);
+                $cleanUrl = $processed['original_url'] ?? $this->saveImageFromUrlOrBase64($url);
+                $variants = $processed['variants'] ?? null;
+
+                ProductImage::create([
                     'product_id' => $product->id,
                     'image_url' => $cleanUrl,
+                    'variants' => $variants,
+                    'width' => $processed['width'] ?? null,
+                    'height' => $processed['height'] ?? null,
+                    'file_size' => $processed['file_size'] ?? null,
+                    'format' => $processed['format'] ?? null,
                     'is_primary' => ($index === 0),
                     'sort_order' => $index,
                 ]);

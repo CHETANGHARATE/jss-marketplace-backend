@@ -13,6 +13,11 @@ class ProductImage extends Model
     protected $fillable = [
         'product_id',
         'image_url',
+        'variants',
+        'width',
+        'height',
+        'file_size',
+        'format',
         'is_primary',
         'sort_order',
     ];
@@ -20,6 +25,10 @@ class ProductImage extends Model
     protected function casts(): array
     {
         return [
+            'variants' => 'array',
+            'width' => 'integer',
+            'height' => 'integer',
+            'file_size' => 'integer',
             'is_primary' => 'boolean',
             'sort_order' => 'integer',
         ];
@@ -28,5 +37,17 @@ class ProductImage extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class, 'product_id');
+    }
+
+    /**
+     * Get specific image variant URL with graceful fallback to primary image URL.
+     */
+    public function getVariantUrl(string $variant = 'card'): string
+    {
+        if (!empty($this->variants) && isset($this->variants[$variant])) {
+            return $this->variants[$variant];
+        }
+
+        return $this->image_url;
     }
 }

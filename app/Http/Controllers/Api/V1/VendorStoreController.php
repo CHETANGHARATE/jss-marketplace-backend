@@ -12,8 +12,10 @@ use App\Http\Resources\VendorStoreResource;
 use App\Http\Resources\VendorWalletResource;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Models\ProductImage;
 use App\Models\StoreFollower;
 use App\Models\VendorStore;
+use App\Services\ImageOptimizationService;
 use App\Services\VendorCommissionService;
 use App\Services\VendorStoreService;
 use Illuminate\Http\JsonResponse;
@@ -350,13 +352,21 @@ class VendorStoreController extends Controller
                     'is_active' => false,
                 ]);
 
-                // Save Gallery Images (Min 1, Max 10)
+                // Save Gallery Images (Min 1, Max 10) with automatic optimization pipeline
                 if (!empty($validated['images'])) {
                     foreach (array_slice(array_filter($validated['images']), 0, 10) as $index => $imgUrl) {
-                        $cleanUrl = $this->saveImageFromUrlOrBase64($imgUrl);
-                        \App\Models\ProductImage::create([
+                        $processed = ImageOptimizationService::processImage($imgUrl, $product->id);
+                        $cleanUrl = $processed['original_url'] ?? $this->saveImageFromUrlOrBase64($imgUrl);
+                        $variants = $processed['variants'] ?? null;
+
+                        ProductImage::create([
                             'product_id' => $product->id,
                             'image_url' => $cleanUrl,
+                            'variants' => $variants,
+                            'width' => $processed['width'] ?? null,
+                            'height' => $processed['height'] ?? null,
+                            'file_size' => $processed['file_size'] ?? null,
+                            'format' => $processed['format'] ?? null,
                             'is_primary' => $index === 0,
                             'sort_order' => $index,
                         ]);

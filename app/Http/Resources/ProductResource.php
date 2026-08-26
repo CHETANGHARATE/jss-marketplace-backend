@@ -24,7 +24,9 @@ class ProductResource extends JsonResource
             ? ($this->description[$locale] ?? $this->description['en'] ?? '') 
             : $this->description;
 
-        $mainImage = $this->thumbnail ?? $this->primaryImage?->image_url ?? ($this->relationLoaded('images') && $this->images->first() ? $this->images->first()->image_url : null);
+        $mainImageObj = $this->primaryImage ?? ($this->relationLoaded('images') ? $this->images->first() : null);
+        $mainImage = $this->thumbnail ?? $mainImageObj?->image_url;
+        $mainVariants = $this->formatVariants($mainImageObj?->variants, $mainImage);
 
         return [
             'id' => $this->id,
@@ -34,12 +36,16 @@ class ProductResource extends JsonResource
             'slug' => $this->slug,
             'short_description' => $this->short_description,
             'description' => $descVal,
-            'image' => $this->formatImageUrl($mainImage),
-            'thumbnail' => $this->formatImageUrl($mainImage),
-            'primary_image' => $this->formatImageUrl($mainImage),
+            'image' => $mainVariants['card'] ?? $this->formatImageUrl($mainImage),
+            'thumbnail' => $mainVariants['thumb'] ?? $this->formatImageUrl($mainImage),
+            'primary_image' => $mainVariants['card'] ?? $this->formatImageUrl($mainImage),
+            'image_variants' => $mainVariants,
             'images' => $this->relationLoaded('images') 
                 ? $this->images->map(fn($img) => $this->formatImageUrl($img->image_url))->values()->toArray() 
                 : ($mainImage ? [$this->formatImageUrl($mainImage)] : []),
+            'gallery_variants' => $this->relationLoaded('images')
+                ? $this->images->map(fn($img) => $this->formatVariants($img->variants, $img->image_url))->values()->toArray()
+                : ($mainVariants ? [$mainVariants] : []),
             'originalPrice' => (float) $this->original_price,
             'offerPrice' => (float) $this->offer_price,
             'cost_price' => (float) $this->cost_price,
@@ -131,5 +137,34 @@ class ProductResource extends JsonResource
         }
 
         return url($cleanPath);
+    }
+
+    /**
+     * Format variant array with absolute URLs for each derivative.
+     */
+    protected function formatVariants(?array $variants, ?string $fallbackUrl): ?array
+    {
+        $fallback = $this->formatImageUrl($fallbackUrl);
+        if (empty($variants)) {
+            return $fallback ? [
+                'thumb' => $fallback,
+                'card' => $fallback,
+                'listing' => $fallback,
+                'detail' => $fallback,
+                'zoom' => $fallback,
+                'original' => $fallback,
+            ] : null;
+        }
+
+        $formatted = [];
+        foreach ($variants as $key => $variantUrl) {
+            $formatted[$key] = $this->formatImageUrl($variantUrl);
+        }
+
+        if (!isset($formatted['original']) && $fallback) {
+            $formatted['original'] = $fallback;
+        }
+
+        return $formatted;
     }
 }
