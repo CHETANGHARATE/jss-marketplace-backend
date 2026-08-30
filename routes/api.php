@@ -452,102 +452,102 @@ Route::prefix('v1')->group(function () {
     });
 
     // Protected Admin Operations (Modules 1-14)
-    Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(function () {
+    Route::middleware(['auth:sanctum', 'ensure.admin_staff'])->prefix('admin')->group(function () {
         // System Settings Admin
-        Route::put('/settings', [SettingController::class, 'update']);
+        Route::put('/settings', [SettingController::class, 'update'])->middleware('permission:settings.edit');
 
         // Admin Product Management (Modules 1-10)
-        Route::get('/products', [AdminProductController::class, 'index']);
-        Route::post('/products', [AdminProductController::class, 'store']);
-        Route::post('/products/bulk-action', [AdminProductController::class, 'bulkAction']);
-        Route::post('/products/import/validate', [AdminBulkImportController::class, 'validateImport']);
-        Route::post('/products/import/execute', [AdminBulkImportController::class, 'executeImport']);
-        Route::get('/products/pending', [AdminProductController::class, 'pending']);
-        Route::get('/products/{id}', [AdminProductController::class, 'show']);
-        Route::put('/products/{id}', [AdminProductController::class, 'update']);
-        Route::delete('/products/{id}', [AdminProductController::class, 'destroy']);
-        Route::post('/products/{id}/approve', [AdminProductController::class, 'approve']);
-        Route::post('/products/{id}/reject', [AdminProductController::class, 'reject']);
-        Route::post('/products/{id}/request-changes', [AdminProductController::class, 'requestChanges']);
-        Route::post('/products/{id}/unpublish', [AdminProductController::class, 'unpublish']);
-        Route::post('/products/{id}/publish', [AdminProductController::class, 'publish']);
-        Route::post('/products/{id}/duplicate', [AdminProductController::class, 'duplicate']);
-        Route::apiResource('/attribute-templates', AttributeTemplateController::class);
+        Route::get('/products', [AdminProductController::class, 'index'])->middleware('permission:products.view');
+        Route::post('/products', [AdminProductController::class, 'store'])->middleware('permission:products.create');
+        Route::post('/products/bulk-action', [AdminProductController::class, 'bulkAction'])->middleware('permission:products.edit');
+        Route::post('/products/import/validate', [AdminBulkImportController::class, 'validateImport'])->middleware('permission:products.create');
+        Route::post('/products/import/execute', [AdminBulkImportController::class, 'executeImport'])->middleware('permission:products.create');
+        Route::get('/products/pending', [AdminProductController::class, 'pending'])->middleware('permission:products.approve');
+        Route::get('/products/{id}', [AdminProductController::class, 'show'])->middleware('permission:products.view');
+        Route::put('/products/{id}', [AdminProductController::class, 'update'])->middleware('permission:products.edit');
+        Route::delete('/products/{id}', [AdminProductController::class, 'destroy'])->middleware('permission:products.delete');
+        Route::post('/products/{id}/approve', [AdminProductController::class, 'approve'])->middleware('permission:products.approve');
+        Route::post('/products/{id}/reject', [AdminProductController::class, 'reject'])->middleware('permission:products.approve');
+        Route::post('/products/{id}/request-changes', [AdminProductController::class, 'requestChanges'])->middleware('permission:products.approve');
+        Route::post('/products/{id}/unpublish', [AdminProductController::class, 'unpublish'])->middleware('permission:products.edit');
+        Route::post('/products/{id}/publish', [AdminProductController::class, 'publish'])->middleware('permission:products.edit');
+        Route::post('/products/{id}/duplicate', [AdminProductController::class, 'duplicate'])->middleware('permission:products.create');
+        Route::apiResource('/attribute-templates', AttributeTemplateController::class)->middleware('permission:attributes.view');
 
         // Category Management
-        Route::post('/categories', [CategoryController::class, 'store']);
-        Route::put('/categories/{id}', [CategoryController::class, 'update']);
-        Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
+        Route::post('/categories', [CategoryController::class, 'store'])->middleware('permission:categories.create');
+        Route::put('/categories/{id}', [CategoryController::class, 'update'])->middleware('permission:categories.edit');
+        Route::delete('/categories/{id}', [CategoryController::class, 'destroy'])->middleware('permission:categories.delete');
 
         // Subcategory Management
-        Route::get('/subcategories', [SubcategoryController::class, 'index']);
-        Route::post('/subcategories', [SubcategoryController::class, 'store']);
-        Route::put('/subcategories/{id}', [SubcategoryController::class, 'update']);
-        Route::delete('/subcategories/{id}', [SubcategoryController::class, 'destroy']);
-        Route::patch('/subcategories/{id}/status', [SubcategoryController::class, 'updateStatus']);
+        Route::get('/subcategories', [SubcategoryController::class, 'index'])->middleware('permission:categories.view');
+        Route::post('/subcategories', [SubcategoryController::class, 'store'])->middleware('permission:categories.create');
+        Route::put('/subcategories/{id}', [SubcategoryController::class, 'update'])->middleware('permission:categories.edit');
+        Route::delete('/subcategories/{id}', [SubcategoryController::class, 'destroy'])->middleware('permission:categories.delete');
+        Route::patch('/subcategories/{id}/status', [SubcategoryController::class, 'updateStatus'])->middleware('permission:categories.edit');
 
         // Brand Management
-        Route::post('/brands', [BrandController::class, 'store']);
-        Route::put('/brands/{id}', [BrandController::class, 'update']);
-        Route::delete('/brands/{id}', [BrandController::class, 'destroy']);
+        Route::post('/brands', [BrandController::class, 'store'])->middleware('permission:brands.create');
+        Route::put('/brands/{id}', [BrandController::class, 'update'])->middleware('permission:brands.edit');
+        Route::delete('/brands/{id}', [BrandController::class, 'destroy'])->middleware('permission:brands.delete');
 
         // Attribute Management
-        Route::post('/attributes', [AttributeController::class, 'store']);
-        Route::delete('/attributes/{id}', [AttributeController::class, 'destroy']);
+        Route::post('/attributes', [AttributeController::class, 'store'])->middleware('permission:attributes.create');
+        Route::delete('/attributes/{id}', [AttributeController::class, 'destroy'])->middleware('permission:attributes.delete');
 
         // Media Upload
-        Route::post('/media/upload', [MediaController::class, 'upload']);
+        Route::post('/media/upload', [MediaController::class, 'upload'])->middleware('permission:products.create|products.edit|categories.create|categories.edit|brands.create|brands.edit|cms.create|cms.edit');
 
         // Warehouse Management (Module 4)
-        Route::post('/warehouses', [WarehouseController::class, 'store']);
-        Route::delete('/warehouses/{id}', [WarehouseController::class, 'destroy']);
+        Route::post('/warehouses', [WarehouseController::class, 'store'])->middleware('permission:inventory.edit');
+        Route::delete('/warehouses/{id}', [WarehouseController::class, 'destroy'])->middleware('permission:inventory.edit');
 
         // Inventory Management Engine (Module 4)
-        Route::get('/inventories', [InventoryController::class, 'index']);
-        Route::post('/inventories/add-stock', [InventoryController::class, 'addStock']);
-        Route::post('/inventories/adjust-stock', [InventoryController::class, 'adjustStock']);
-        Route::post('/inventories/transfer', [InventoryController::class, 'transfer']);
-        Route::get('/inventories/low-stock', [InventoryController::class, 'lowStockReport']);
-        Route::get('/stock-movements', [InventoryController::class, 'movements']);
+        Route::get('/inventories', [InventoryController::class, 'index'])->middleware('permission:inventory.view');
+        Route::post('/inventories/add-stock', [InventoryController::class, 'addStock'])->middleware('permission:inventory.edit');
+        Route::post('/inventories/adjust-stock', [InventoryController::class, 'adjustStock'])->middleware('permission:inventory.edit');
+        Route::post('/inventories/transfer', [InventoryController::class, 'transfer'])->middleware('permission:inventory.edit');
+        Route::get('/inventories/low-stock', [InventoryController::class, 'lowStockReport'])->middleware('permission:inventory.view');
+        Route::get('/stock-movements', [InventoryController::class, 'movements'])->middleware('permission:inventory.view');
 
         // Abandoned Carts Report (Module 5)
-        Route::get('/carts/abandoned', [CartController::class, 'abandonedCarts']);
+        Route::get('/carts/abandoned', [CartController::class, 'abandonedCarts'])->middleware('permission:orders.view');
 
         // Admin Order Management (Module 6)
-        Route::get('/orders', [AdminOrderController::class, 'index']);
-        Route::get('/orders/{id}', [AdminOrderController::class, 'show']);
-        Route::patch('/orders/{id}/status', [AdminOrderController::class, 'updateStatus']);
+        Route::get('/orders', [AdminOrderController::class, 'index'])->middleware('permission:orders.view');
+        Route::get('/orders/{id}', [AdminOrderController::class, 'show'])->middleware('permission:orders.view');
+        Route::patch('/orders/{id}/status', [AdminOrderController::class, 'updateStatus'])->middleware('permission:orders.edit');
 
         // Phase 3E: Admin Order Returns & Reverse Logistics (Features 36 & 37)
-        Route::get('/returns', [OrderReturnController::class, 'adminIndex']);
-        Route::put('/returns/{id}/status', [OrderReturnController::class, 'updateStatus']);
+        Route::get('/returns', [OrderReturnController::class, 'adminIndex'])->middleware('permission:orders.view');
+        Route::put('/returns/{id}/status', [OrderReturnController::class, 'updateStatus'])->middleware('permission:orders.edit');
 
         // Admin Payment & Refund Management (Module 7)
-        Route::get('/payments', [AdminPaymentController::class, 'index']);
-        Route::get('/payments/logs', [AdminPaymentController::class, 'logs']);
-        Route::post('/payments/refund', [AdminPaymentController::class, 'refund']);
+        Route::get('/payments', [AdminPaymentController::class, 'index'])->middleware('permission:payments.view');
+        Route::get('/payments/logs', [AdminPaymentController::class, 'logs'])->middleware('permission:payments.view');
+        Route::post('/payments/refund', [AdminPaymentController::class, 'refund'])->middleware('permission:payments.refund');
 
         // Admin Shipping & Logistics Management (Module 8)
-        Route::get('/shipping-zones', [AdminShippingController::class, 'zones']);
-        Route::post('/shipping-zones', [AdminShippingController::class, 'storeZone']);
-        Route::get('/couriers', [AdminShippingController::class, 'couriers']);
-        Route::post('/couriers', [AdminShippingController::class, 'storeCourier']);
-        Route::get('/shipments', [AdminShippingController::class, 'shipments']);
-        Route::post('/shipments/create', [AdminShippingController::class, 'createShipment']);
-        Route::patch('/shipments/{id}/status', [AdminShippingController::class, 'updateStatus']);
+        Route::get('/shipping-zones', [AdminShippingController::class, 'zones'])->middleware('permission:shipping.view');
+        Route::post('/shipping-zones', [AdminShippingController::class, 'storeZone'])->middleware('permission:shipping.edit');
+        Route::get('/couriers', [AdminShippingController::class, 'couriers'])->middleware('permission:shipping.view');
+        Route::post('/couriers', [AdminShippingController::class, 'storeCourier'])->middleware('permission:shipping.edit');
+        Route::get('/shipments', [AdminShippingController::class, 'shipments'])->middleware('permission:shipping.view');
+        Route::post('/shipments/create', [AdminShippingController::class, 'createShipment'])->middleware('permission:shipping.edit');
+        Route::patch('/shipments/{id}/status', [AdminShippingController::class, 'updateStatus'])->middleware('permission:shipping.edit');
 
         // Admin Review Moderation & Q&A Answers (Module 9)
-        Route::get('/reviews', [AdminReviewController::class, 'index']);
-        Route::patch('/reviews/{id}/moderate', [AdminReviewController::class, 'moderate']);
-        Route::post('/questions/{id}/answer', [AdminReviewController::class, 'answerQuestion']);
+        Route::get('/reviews', [AdminReviewController::class, 'index'])->middleware('permission:reviews.view');
+        Route::patch('/reviews/{id}/moderate', [AdminReviewController::class, 'moderate'])->middleware('permission:reviews.edit');
+        Route::post('/questions/{id}/answer', [AdminReviewController::class, 'answerQuestion'])->middleware('permission:reviews.edit');
 
         // Admin Support Tickets (Module 9)
-        Route::get('/support/tickets', [AdminReviewController::class, 'tickets']);
-        Route::post('/support/tickets/{id}/reply', [AdminReviewController::class, 'ticketReply']);
-        Route::patch('/support/tickets/{id}/status', [AdminReviewController::class, 'updateTicketStatus']);
+        Route::get('/support/tickets', [AdminReviewController::class, 'tickets'])->middleware('permission:support.view');
+        Route::post('/support/tickets/{id}/reply', [AdminReviewController::class, 'ticketReply'])->middleware('permission:support.edit');
+        Route::patch('/support/tickets/{id}/status', [AdminReviewController::class, 'updateTicketStatus'])->middleware('permission:support.edit');
 
         // Admin BI Analytics & Administration (Module 10)
-        Route::prefix('analytics')->group(function () {
+        Route::prefix('analytics')->middleware('permission:reports.view')->group(function () {
             Route::get('/overview', [AdminAnalyticsController::class, 'overview']);
             Route::get('/sales', [AdminAnalyticsController::class, 'sales']);
             Route::get('/customers', [AdminAnalyticsController::class, 'customers']);
@@ -555,90 +555,90 @@ Route::prefix('v1')->group(function () {
         });
 
         // Admin Report Exports (Module 10)
-        Route::get('/reports/sales/export', [AdminAnalyticsController::class, 'exportSales']);
-        Route::get('/reports/inventory/export', [AdminAnalyticsController::class, 'exportInventory']);
+        Route::get('/reports/sales/export', [AdminAnalyticsController::class, 'exportSales'])->middleware('permission:reports.export');
+        Route::get('/reports/inventory/export', [AdminAnalyticsController::class, 'exportInventory'])->middleware('permission:reports.export');
 
         // Admin Audit & Activity Logs (Module 10)
-        Route::get('/audit-logs', [AdminAnalyticsController::class, 'auditLogs']);
-        Route::get('/activity-logs', [AdminAnalyticsController::class, 'activityLogs']);
+        Route::get('/audit-logs', [AdminAnalyticsController::class, 'auditLogs'])->middleware('permission:security.view');
+        Route::get('/activity-logs', [AdminAnalyticsController::class, 'activityLogs'])->middleware('permission:security.view');
 
         // Admin Customer Management
-        Route::get('/customers', [AdminCustomerController::class, 'index']);
-        Route::get('/customers/{id}', [AdminCustomerController::class, 'show']);
-        Route::patch('/customers/{id}/toggle-status', [AdminCustomerController::class, 'toggleStatus']);
+        Route::get('/customers', [AdminCustomerController::class, 'index'])->middleware('permission:customers.view');
+        Route::get('/customers/{id}', [AdminCustomerController::class, 'show'])->middleware('permission:customers.view');
+        Route::patch('/customers/{id}/toggle-status', [AdminCustomerController::class, 'toggleStatus'])->middleware('permission:customers.edit');
 
         // Admin Multi-Vendor Management (Module 11)
-        Route::get('/vendor/stores', [AdminVendorController::class, 'stores']);
-        Route::get('/vendor/stores/{id}', [AdminVendorController::class, 'show']);
-        Route::get('/vendor/stats', [AdminVendorController::class, 'stats']);
-        Route::patch('/vendor/stores/{id}/kyc', [AdminVendorController::class, 'verifyKYC']);
-        Route::post('/vendor/stores/{id}/approve', [AdminVendorController::class, 'approveStore']);
-        Route::post('/vendor/stores/{id}/reject', [AdminVendorController::class, 'rejectStore']);
-        Route::post('/vendor/stores/{id}/suspend', [AdminVendorController::class, 'suspendStore']);
-        Route::post('/vendor/stores/{id}/activate', [AdminVendorController::class, 'activateStore']);
-        Route::get('/vendor/settlements', [AdminVendorController::class, 'settlements']);
-        Route::patch('/vendor/settlements/{id}/process', [AdminVendorController::class, 'processSettlement']);
+        Route::get('/vendor/stores', [AdminVendorController::class, 'stores'])->middleware('permission:vendors.view');
+        Route::get('/vendor/stores/{id}', [AdminVendorController::class, 'show'])->middleware('permission:vendors.view');
+        Route::get('/vendor/stats', [AdminVendorController::class, 'stats'])->middleware('permission:vendors.view');
+        Route::patch('/vendor/stores/{id}/kyc', [AdminVendorController::class, 'verifyKYC'])->middleware('permission:vendors.approve');
+        Route::post('/vendor/stores/{id}/approve', [AdminVendorController::class, 'approveStore'])->middleware('permission:vendors.approve');
+        Route::post('/vendor/stores/{id}/reject', [AdminVendorController::class, 'rejectStore'])->middleware('permission:vendors.approve');
+        Route::post('/vendor/stores/{id}/suspend', [AdminVendorController::class, 'suspendStore'])->middleware('permission:vendors.suspend');
+        Route::post('/vendor/stores/{id}/activate', [AdminVendorController::class, 'activateStore'])->middleware('permission:vendors.approve');
+        Route::get('/vendor/settlements', [AdminVendorController::class, 'settlements'])->middleware('permission:payments.view');
+        Route::patch('/vendor/settlements/{id}/process', [AdminVendorController::class, 'processSettlement'])->middleware('permission:payments.settle');
 
         // Admin Promotions, Coupons & Flash Sales (Module 12)
-        Route::get('/coupons', [AdminPromotionController::class, 'indexCoupons']);
-        Route::post('/coupons', [AdminPromotionController::class, 'storeCoupon']);
-        Route::put('/coupons/{id}', [AdminPromotionController::class, 'updateCoupon']);
-        Route::patch('/coupons/{id}/toggle-status', [AdminPromotionController::class, 'toggleCouponStatus']);
-        Route::delete('/coupons/{id}', [AdminPromotionController::class, 'destroyCoupon']);
+        Route::get('/coupons', [AdminPromotionController::class, 'indexCoupons'])->middleware('permission:promotions.view');
+        Route::post('/coupons', [AdminPromotionController::class, 'storeCoupon'])->middleware('permission:promotions.create');
+        Route::put('/coupons/{id}', [AdminPromotionController::class, 'updateCoupon'])->middleware('permission:promotions.edit');
+        Route::patch('/coupons/{id}/toggle-status', [AdminPromotionController::class, 'toggleCouponStatus'])->middleware('permission:promotions.edit');
+        Route::delete('/coupons/{id}', [AdminPromotionController::class, 'destroyCoupon'])->middleware('permission:promotions.delete');
 
-        Route::get('/flash-sales', [AdminPromotionController::class, 'indexFlashSales']);
-        Route::post('/flash-sales', [AdminPromotionController::class, 'storeFlashSale']);
-        Route::put('/flash-sales/{id}', [AdminPromotionController::class, 'updateFlashSale']);
-        Route::patch('/flash-sales/{id}/toggle-status', [AdminPromotionController::class, 'toggleFlashSaleStatus']);
-        Route::delete('/flash-sales/{id}', [AdminPromotionController::class, 'destroyFlashSale']);
+        Route::get('/flash-sales', [AdminPromotionController::class, 'indexFlashSales'])->middleware('permission:promotions.view');
+        Route::post('/flash-sales', [AdminPromotionController::class, 'storeFlashSale'])->middleware('permission:promotions.create');
+        Route::put('/flash-sales/{id}', [AdminPromotionController::class, 'updateFlashSale'])->middleware('permission:promotions.edit');
+        Route::patch('/flash-sales/{id}/toggle-status', [AdminPromotionController::class, 'toggleFlashSaleStatus'])->middleware('permission:promotions.edit');
+        Route::delete('/flash-sales/{id}', [AdminPromotionController::class, 'destroyFlashSale'])->middleware('permission:promotions.delete');
 
         // Admin Search Analytics & Synonyms (Module 13)
-        Route::get('/search/analytics', [AdminSearchController::class, 'analytics']);
-        Route::get('/search/synonyms', [AdminSearchController::class, 'synonyms']);
-        Route::post('/search/synonyms', [AdminSearchController::class, 'storeSynonym']);
+        Route::get('/search/analytics', [AdminSearchController::class, 'analytics'])->middleware('permission:reports.view');
+        Route::get('/search/synonyms', [AdminSearchController::class, 'synonyms'])->middleware('permission:settings.view');
+        Route::post('/search/synonyms', [AdminSearchController::class, 'storeSynonym'])->middleware('permission:settings.edit');
 
         // Admin CMS & Content Management
-        Route::get('/cms/banners', [AdminCmsController::class, 'indexBanners']);
-        Route::post('/cms/banners', [AdminCmsController::class, 'storeBanner']);
-        Route::put('/cms/banners/{id}', [AdminCmsController::class, 'updateBanner']);
-        Route::patch('/cms/banners/{id}/toggle-status', [AdminCmsController::class, 'toggleBannerStatus']);
-        Route::delete('/cms/banners/{id}', [AdminCmsController::class, 'destroyBanner']);
+        Route::get('/cms/banners', [AdminCmsController::class, 'indexBanners'])->middleware('permission:cms.view');
+        Route::post('/cms/banners', [AdminCmsController::class, 'storeBanner'])->middleware('permission:cms.create');
+        Route::put('/cms/banners/{id}', [AdminCmsController::class, 'updateBanner'])->middleware('permission:cms.edit');
+        Route::patch('/cms/banners/{id}/toggle-status', [AdminCmsController::class, 'toggleBannerStatus'])->middleware('permission:cms.edit');
+        Route::delete('/cms/banners/{id}', [AdminCmsController::class, 'destroyBanner'])->middleware('permission:cms.delete');
 
-        Route::get('/cms/popups', [AdminCmsController::class, 'getPopups']);
-        Route::put('/cms/popups', [AdminCmsController::class, 'updatePopup']);
+        Route::get('/cms/popups', [AdminCmsController::class, 'getPopups'])->middleware('permission:cms.view');
+        Route::put('/cms/popups', [AdminCmsController::class, 'updatePopup'])->middleware('permission:cms.edit');
 
-        Route::get('/cms/pages', [AdminCmsController::class, 'getPages']);
-        Route::put('/cms/pages/{id}', [AdminCmsController::class, 'updatePage']);
+        Route::get('/cms/pages', [AdminCmsController::class, 'getPages'])->middleware('permission:cms.view');
+        Route::put('/cms/pages/{id}', [AdminCmsController::class, 'updatePage'])->middleware('permission:cms.edit');
 
-        Route::get('/cms/faqs', [AdminCmsController::class, 'getFaqs']);
-        Route::post('/cms/faqs', [AdminCmsController::class, 'storeFaq']);
-        Route::delete('/cms/faqs/{id}', [AdminCmsController::class, 'destroyFaq']);
+        Route::get('/cms/faqs', [AdminCmsController::class, 'getFaqs'])->middleware('permission:cms.view');
+        Route::post('/cms/faqs', [AdminCmsController::class, 'storeFaq'])->middleware('permission:cms.create');
+        Route::delete('/cms/faqs/{id}', [AdminCmsController::class, 'destroyFaq'])->middleware('permission:cms.delete');
 
         // Admin Staff & RBAC
-        Route::get('/staff/roles', [AdminStaffController::class, 'indexRoles']);
-        Route::get('/staff', [AdminStaffController::class, 'indexStaff']);
-        Route::post('/staff', [AdminStaffController::class, 'storeStaff']);
-        Route::put('/staff/{id}', [AdminStaffController::class, 'updateStaff']);
-        Route::delete('/staff/{id}', [AdminStaffController::class, 'destroyStaff']);
+        Route::get('/staff/roles', [AdminStaffController::class, 'indexRoles'])->middleware('permission:staff.view');
+        Route::get('/staff', [AdminStaffController::class, 'indexStaff'])->middleware('permission:staff.view');
+        Route::post('/staff', [AdminStaffController::class, 'storeStaff'])->middleware('permission:staff.create');
+        Route::put('/staff/{id}', [AdminStaffController::class, 'updateStaff'])->middleware('permission:staff.edit');
+        Route::delete('/staff/{id}', [AdminStaffController::class, 'destroyStaff'])->middleware('permission:staff.delete');
 
         // Phase 4: Admin B2B Management
-        Route::get('/business/buyers', [BusinessAccountController::class, 'adminList']);
-        Route::get('/business/buyers/{id}', [BusinessAccountController::class, 'adminShow']);
-        Route::patch('/business/buyers/{id}/verify', [BusinessAccountController::class, 'adminVerify']);
-        Route::get('/business-credit', [BusinessCreditController::class, 'adminList']);
-        Route::patch('/business-credit/{id}/approve', [BusinessCreditController::class, 'adminApproveLimit']);
-        Route::post('/business-credit/{id}/repayment', [BusinessCreditController::class, 'recordRepayment']);
-        Route::get('/rfqs', [RfqController::class, 'adminIndex']);
-        Route::put('/products/{id}/tiers', [ProductTierController::class, 'syncTiers']);
+        Route::get('/business/buyers', [BusinessAccountController::class, 'adminList'])->middleware('permission:b2b.view');
+        Route::get('/business/buyers/{id}', [BusinessAccountController::class, 'adminShow'])->middleware('permission:b2b.view');
+        Route::patch('/business/buyers/{id}/verify', [BusinessAccountController::class, 'adminVerify'])->middleware('permission:b2b.approve');
+        Route::get('/business-credit', [BusinessCreditController::class, 'adminList'])->middleware('permission:b2b.view');
+        Route::patch('/business-credit/{id}/approve', [BusinessCreditController::class, 'adminApproveLimit'])->middleware('permission:b2b.approve');
+        Route::post('/business-credit/{id}/repayment', [BusinessCreditController::class, 'recordRepayment'])->middleware('permission:b2b.edit');
+        Route::get('/rfqs', [RfqController::class, 'adminIndex'])->middleware('permission:b2b.view');
+        Route::put('/products/{id}/tiers', [ProductTierController::class, 'syncTiers'])->middleware('permission:products.edit');
 
         // Phase 5: Admin Notification Engine (Templates & Delivery Logs)
-        Route::prefix('notifications')->group(function () {
+        Route::prefix('notifications')->middleware('permission:notifications.view')->group(function () {
             Route::get('/templates', [AdminNotificationTemplateController::class, 'index']);
             Route::get('/templates/{id}', [AdminNotificationTemplateController::class, 'show']);
-            Route::put('/templates/{id}', [AdminNotificationTemplateController::class, 'update']);
+            Route::put('/templates/{id}', [AdminNotificationTemplateController::class, 'update'])->middleware('permission:notifications.edit');
             Route::get('/logs', [AdminNotificationLogController::class, 'index']);
             Route::get('/stats', [AdminNotificationLogController::class, 'stats']);
-            Route::post('/logs/{id}/retry', [AdminNotificationLogController::class, 'retry']);
+            Route::post('/logs/{id}/retry', [AdminNotificationLogController::class, 'retry'])->middleware('permission:notifications.edit');
         });
     });
 

@@ -22,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
             'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
+            'ensure.admin_staff' => \App\Http\Middleware\EnsureAdminStaff::class,
         ]);
 
         $middleware->redirectGuestsTo(function (Request $request) {
@@ -48,6 +49,27 @@ return Application::configure(basePath: dirname(__DIR__))
                     'message' => 'Unauthenticated. Please provide a valid bearer token.',
                     'errors' => null,
                 ], 401);
+            }
+        });
+
+        // Format authorization / permission denied exceptions nicely (403 Forbidden)
+        $exceptions->renderable(function (\Spatie\Permission\Exceptions\UnauthorizedException $e, Request $request) {
+            if ($request->is('api/*') || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You do not have permission to perform this action.',
+                    'errors' => null,
+                ], 403);
+            }
+        });
+
+        $exceptions->renderable(function (\Illuminate\Auth\Access\AuthorizationException $e, Request $request) {
+            if ($request->is('api/*') || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You do not have permission to perform this action.',
+                    'errors' => null,
+                ], 403);
             }
         });
 

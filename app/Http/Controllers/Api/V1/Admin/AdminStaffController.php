@@ -179,6 +179,8 @@ class AdminStaffController extends Controller
                     'role' => $u->role instanceof UserRole ? $u->role->value : (string)$u->role,
                     'role_slug' => $roleInfo['slug'],
                     'role_title' => $roleInfo['title'],
+                    'permissions' => $u->hasRoleSafely('super_admin') ? ['*'] : $u->getAllPermissions()->pluck('name')->values(),
+                    'module_access' => $roleInfo['module_access'] ?? ['All Modules'],
                     'status' => $u->status instanceof UserStatus ? $u->status->value : ($u->status ?? 'active'),
                     'is_active' => ($u->status instanceof UserStatus ? $u->status->value : $u->status) === 'active',
                     'created_at' => $u->created_at?->toIso8601String(),
