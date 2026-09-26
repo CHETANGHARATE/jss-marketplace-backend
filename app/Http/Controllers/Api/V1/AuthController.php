@@ -69,7 +69,7 @@ class AuthController extends Controller
         Log::info("OTP_DEBUG [{$action}][3/8] Passing recipient to Mail::to(): [{$recipient}]");
 
         // [4] Build OtpMail object and log success
-        $otpMailObject = new OtpMail($otpCode, $type);
+        $otpMailObject = new OtpMail($otpCode, $type, $recipient);
         Log::info("OTP_DEBUG [{$action}][4/8] OtpMail object created successfully: class=[" . get_class($otpMailObject) . "], view=[emails.otp], type=[{$type}]");
 
         // SMTP config dump before dispatch

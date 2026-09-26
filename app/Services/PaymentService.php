@@ -139,16 +139,94 @@ class PaymentService
         $eventType = $payload['event'] ?? 'webhook.received';
 
         // Check Idempotency via Audit Log
-        $exists = PaymentLog::where('gateway', $gateway)
-            ->where('event_type', $eventType)
-            ->where('payload->event_id', $payload['id'] ?? null)
-            ->exists();
+        $eventId = $payload['id'] ?? $payload['event_id'] ?? null;
+        if ($eventId) {
+            $exists = PaymentLog::where('gateway', $gateway)
+                ->where('payload->id', $eventId)
+                ->exists();
 
-        if ($exists) {
-            return ['status' => 'ignored', 'message' => 'Duplicate webhook event ignored (idempotent).'];
+            if ($exists) {
+                return ['status' => 'ignored', 'message' => 'Duplicate webhook event ignored (idempotent).'];
+            }
+        }
+
+        // Business Reconciliation Logic
+        $paymentData = $payload['payload']['payment']['entity'] ?? null;
+        $refundData = $payload['payload']['refund']['entity'] ?? null;
+        $orderData = $payload['payload']['order']['entity'] ?? null;
+
+        $targetPaymentId = null;
+
+        if (in_array($eventType, ['payment.captured', 'order.paid'])) {
+            $rzpPaymentId = $paymentData['id'] ?? null;
+            $rzpOrderId = $paymentData['order_id'] ?? $orderData['id'] ?? null;
+
+            $payment = Payment::where(function ($q) use ($rzpPaymentId, $rzpOrderId) {
+                if ($rzpPaymentId) {
+                    $q->orWhere('transaction_id', $rzpPaymentId);
+                }
+                if ($rzpOrderId) {
+                    $q->orWhere('transaction_id', $rzpOrderId);
+                }
+            })->latest()->first();
+
+            // If not found by transaction_id, try order notes
+            if (!$payment && !empty($paymentData['notes']['order_number'])) {
+                $order = Order::where('order_number', $paymentData['notes']['order_number'])->first();
+                if ($order) {
+                    $payment = Payment::where('order_id', $order->id)->latest()->first();
+                }
+            }
+
+            if ($payment && $payment->status !== 'captured') {
+                $targetPaymentId = $payment->id;
+                $payment->update([
+                    'transaction_id' => $rzpPaymentId ?? $payment->transaction_id,
+                    'status' => 'captured',
+                    'paid_at' => now(),
+                    'payment_method_details' => $paymentData,
+                ]);
+
+                // Trigger order confirmation & commission calculations
+                event(new PaymentSuccessEvent($payment));
+            }
+        } elseif ($eventType === 'payment.failed') {
+            $rzpPaymentId = $paymentData['id'] ?? null;
+            $rzpOrderId = $paymentData['order_id'] ?? null;
+
+            $payment = Payment::where(function ($q) use ($rzpPaymentId, $rzpOrderId) {
+                if ($rzpPaymentId) {
+                    $q->orWhere('transaction_id', $rzpPaymentId);
+                }
+                if ($rzpOrderId) {
+                    $q->orWhere('transaction_id', $rzpOrderId);
+                }
+            })->latest()->first();
+
+            if ($payment && $payment->status === 'pending') {
+                $targetPaymentId = $payment->id;
+                $payment->update([
+                    'status' => 'failed',
+                    'error_code' => $paymentData['error_code'] ?? 'GATEWAY_FAILED',
+                    'error_description' => $paymentData['error_description'] ?? 'Payment failed on gateway.',
+                    'payment_method_details' => $paymentData,
+                ]);
+            }
+        } elseif ($eventType === 'refund.processed' && $refundData) {
+            $gatewayRefundId = $refundData['id'] ?? null;
+            if ($gatewayRefundId) {
+                $refund = Refund::where('gateway_refund_id', $gatewayRefundId)->first();
+                if ($refund && $refund->status !== 'processed') {
+                    $refund->update([
+                        'status' => 'processed',
+                        'processed_at' => now(),
+                    ]);
+                }
+            }
         }
 
         PaymentLog::create([
+            'payment_id' => $targetPaymentId,
             'gateway' => $gateway,
             'event_type' => $eventType,
             'payload' => $payload,

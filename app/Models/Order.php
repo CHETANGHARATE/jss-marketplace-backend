@@ -73,4 +73,9 @@ class Order extends Model
     {
         return $this->hasMany(LoyaltyTransaction::class, 'order_id');
     }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class, 'order_id');
+    }
 }

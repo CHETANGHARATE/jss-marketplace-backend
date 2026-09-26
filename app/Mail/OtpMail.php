@@ -15,14 +15,16 @@ class OtpMail extends Mailable
 
     public string $otpCode;
     public string $type;
+    public ?string $email;
 
     /**
      * Create a new message instance.
      */
-    public function __construct(string $otpCode, string $type = 'email_verification')
+    public function __construct(string $otpCode, string $type = 'email_verification', ?string $email = null)
     {
         $this->otpCode = $otpCode;
         $this->type = $type;
+        $this->email = $email;
     }
 
     /**
@@ -51,12 +53,19 @@ class OtpMail extends Mailable
      */
     public function content(): Content
     {
+        $frontendUrl = rtrim(config('app.frontend_url', env('FRONTEND_URL', 'https://jsssolutions.in')), '/');
+        $resetUrl = $this->email
+            ? "{$frontendUrl}/reset-password?email=" . urlencode($this->email) . "&token=" . urlencode($this->otpCode)
+            : null;
+
         return new Content(
             view: 'emails.otp',
             text: 'emails.otp_plain',
             with: [
                 'otpCode' => $this->otpCode,
                 'type' => $this->type,
+                'email' => $this->email,
+                'resetUrl' => $resetUrl,
             ],
         );
     }

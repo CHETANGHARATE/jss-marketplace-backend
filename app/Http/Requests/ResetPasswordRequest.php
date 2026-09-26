@@ -25,7 +25,7 @@ class ResetPasswordRequest extends FormRequest
             'token' => ['nullable', 'string'],
             'otp' => ['nullable', 'string'],
             'email' => ['required', 'string', 'email', 'exists:users,email'],
-            'password' => ['required', 'string', 'confirmed'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
         ];
     }
 }

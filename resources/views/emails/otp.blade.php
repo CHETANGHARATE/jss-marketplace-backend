@@ -112,6 +112,17 @@
                 <div class="otp-code">{{ $otpCode }}</div>
             </div>
 
+            @if(!empty($resetUrl))
+            <div style="text-align: center; margin-bottom: 28px;">
+                <a href="{{ $resetUrl }}" style="display: inline-block; background: #e11d48; color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 10px; font-weight: 700; font-size: 14px; letter-spacing: 0.5px;">
+                    Reset Your Password
+                </a>
+                <p style="font-size: 12px; color: #64748b; margin-top: 10px;">
+                    Or enter the 6-digit verification code above on the reset password screen.
+                </p>
+            </div>
+            @endif
+
             <div class="warning">
                 <strong>Important Security Note:</strong> This code is valid for <strong>10 minutes</strong> and can only be used once. Never share this code with anyone. JSS Marketplace staff will never ask for your verification code.
             </div>

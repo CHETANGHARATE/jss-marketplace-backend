@@ -29,7 +29,22 @@ class AdminPaymentController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Payment::with(['user', 'order']);
+        $query = Payment::with(['user', 'order', 'refunds']);
+
+        if ($request->filled('search')) {
+            $search = trim($request->input('search'));
+            $query->where(function ($q) use ($search) {
+                $q->where('payment_number', 'like', "%{$search}%")
+                  ->orWhere('transaction_id', 'like', "%{$search}%")
+                  ->orWhereHas('order', function ($oq) use ($search) {
+                      $oq->where('order_number', 'like', "%{$search}%");
+                  })
+                  ->orWhereHas('user', function ($uq) use ($search) {
+                      $uq->where('name', 'like', "%{$search}%")
+                         ->orWhere('email', 'like', "%{$search}%");
+                  });
+            });
+        }
 
         if ($request->filled('gateway')) {
             $query->where('gateway', $request->input('gateway'));
@@ -39,7 +54,8 @@ class AdminPaymentController extends Controller
             $query->where('status', $request->input('status'));
         }
 
-        $payments = $query->latest()->paginate(15);
+        $perPage = min((int) ($request->input('per_page', 15)), 100);
+        $payments = $query->latest()->paginate($perPage);
 
         return response()->json([
             'success' => true,
