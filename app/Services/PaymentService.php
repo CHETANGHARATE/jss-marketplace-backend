@@ -15,10 +15,14 @@ use Exception;
 class PaymentService
 {
     protected PaymentGatewayManager $gatewayManager;
+    protected OrderNotificationService $orderNotificationService;
 
-    public function __construct(PaymentGatewayManager $gatewayManager)
-    {
+    public function __construct(
+        PaymentGatewayManager $gatewayManager,
+        OrderNotificationService $orderNotificationService
+    ) {
         $this->gatewayManager = $gatewayManager;
+        $this->orderNotificationService = $orderNotificationService;
     }
 
     /**
@@ -211,6 +215,13 @@ class PaymentService
                     'error_description' => $paymentData['error_description'] ?? 'Payment failed on gateway.',
                     'payment_method_details' => $paymentData,
                 ]);
+
+                if ($payment->order) {
+                    $this->orderNotificationService->notifyPaymentFailed(
+                        $payment->order,
+                        $paymentData['error_description'] ?? 'Payment failed on gateway.'
+                    );
+                }
             }
         } elseif ($eventType === 'refund.processed' && $refundData) {
             $gatewayRefundId = $refundData['id'] ?? null;

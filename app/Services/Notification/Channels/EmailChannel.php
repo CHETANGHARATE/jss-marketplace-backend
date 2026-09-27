@@ -24,12 +24,23 @@ class EmailChannel
 
         $emailSubject = $subject ?: 'JSS Solutions Marketplace Update';
 
+        $viewData = [
+            'subject' => $emailSubject,
+            'body' => $body,
+            'data' => $data,
+            'user' => $user,
+        ];
+
         try {
-            Mail::raw("{$emailSubject}\n\n{$body}\n\nThank you,\nJSS Solutions Marketplace Team\nhttps://jsssolutions.in", function ($message) use ($email, $emailSubject) {
-                $message->to($email)
-                    ->from(config('mail.from.address', 'no-reply@jsssolutions.in'), config('mail.from.name', 'JSS Marketplace'))
-                    ->subject($emailSubject);
-            });
+            Mail::send(
+                ['html' => 'emails.marketplace_layout', 'text' => 'emails.marketplace_layout_plain'],
+                $viewData,
+                function ($message) use ($email, $emailSubject) {
+                    $message->to($email)
+                        ->from(config('mail.from.address', 'no-reply@jsssolutions.in'), config('mail.from.name', 'JSS Marketplace'))
+                        ->subject($emailSubject);
+                }
+            );
 
             Log::info("EMAIL_CHANNEL_SENT: To [{$email}], Subject [{$emailSubject}]");
 
@@ -40,12 +51,29 @@ class EmailChannel
                 'response' => ['recipient' => $email],
             ];
         } catch (\Throwable $e) {
-            Log::warning("EMAIL_CHANNEL_EXCEPTION to [{$email}]: " . $e->getMessage());
-            return [
-                'success' => false,
-                'provider' => 'smtp',
-                'error' => $e->getMessage(),
-            ];
+            Log::warning("EMAIL_CHANNEL_HTML_FAILED to [{$email}], trying raw fallback: " . $e->getMessage());
+
+            try {
+                Mail::raw("{$emailSubject}\n\n{$body}\n\nThank you,\nJSS Solutions Marketplace Team\nhttps://jsssolutions.in", function ($message) use ($email, $emailSubject) {
+                    $message->to($email)
+                        ->from(config('mail.from.address', 'no-reply@jsssolutions.in'), config('mail.from.name', 'JSS Marketplace'))
+                        ->subject($emailSubject);
+                });
+
+                return [
+                    'success' => true,
+                    'provider' => 'smtp_raw_fallback',
+                    'provider_message_id' => 'mail_' . uniqid(),
+                    'response' => ['recipient' => $email],
+                ];
+            } catch (\Throwable $rawError) {
+                Log::error("EMAIL_CHANNEL_EXCEPTION to [{$email}]: " . $rawError->getMessage());
+                return [
+                    'success' => false,
+                    'provider' => 'smtp',
+                    'error' => $rawError->getMessage(),
+                ];
+            }
         }
     }
 }

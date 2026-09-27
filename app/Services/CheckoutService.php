@@ -286,7 +286,12 @@ class CheckoutService
             $this->cartService->clearCart($cart);
 
             // 13. Dispatch Multi-Channel Notifications (Feature 39)
-            $this->notificationService->notifyOrderPlaced($order);
+            // For Cash on Delivery (COD), order placement acts as COD confirmation.
+            // For Online / Prepaid orders (Razorpay, etc.), confirmation is deferred
+            // until server-authoritative payment capture via callback or webhook.
+            if (strtolower($order->payment_method) === 'cod') {
+                $this->notificationService->notifyOrderPlaced($order);
+            }
 
             return $order->fresh(['items.product.primaryImage', 'user', 'shippingAddress', 'billingAddress']);
         });

@@ -635,6 +635,7 @@ Route::prefix('v1')->group(function () {
         Route::prefix('notifications')->middleware('permission:notifications.view')->group(function () {
             Route::get('/templates', [AdminNotificationTemplateController::class, 'index']);
             Route::get('/templates/{id}', [AdminNotificationTemplateController::class, 'show']);
+            Route::post('/templates/{id}/preview', [AdminNotificationTemplateController::class, 'preview']);
             Route::put('/templates/{id}', [AdminNotificationTemplateController::class, 'update'])->middleware('permission:notifications.edit');
             Route::get('/logs', [AdminNotificationLogController::class, 'index']);
             Route::get('/stats', [AdminNotificationLogController::class, 'stats']);
