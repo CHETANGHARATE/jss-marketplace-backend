@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Address;
 use App\Models\Cart;
+use App\Models\CartItem;
 use App\Models\Coupon;
 use App\Models\CouponUsage;
 use App\Models\Inventory;
@@ -68,7 +69,8 @@ class CheckoutService
                 if (!$cart) {
                     $cart = Cart::create(['user_id' => $user->id, 'status' => 'active']);
                 }
-                $cart->items()->delete();
+                // Force delete any existing items for this cart to prevent unique composite key collision on (cart_id, product_id)
+                CartItem::withTrashed()->where('cart_id', $cart->id)->forceDelete();
                 foreach ($cartItems as $cItem) {
                     $prod = Product::approved()->find($cItem['product_id']);
                     if ($prod) {
@@ -81,7 +83,7 @@ class CheckoutService
                         ]);
                     }
                 }
-                $cart = $cart->fresh(['items.product.primaryImage']);
+                $cart->load(['items.product.primaryImage']);
             }
 
             if (!$cart || $cart->items->isEmpty()) {

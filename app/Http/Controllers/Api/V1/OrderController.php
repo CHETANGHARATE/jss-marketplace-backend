@@ -13,7 +13,9 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Log;
 use Exception;
+use Throwable;
 
 class OrderController extends Controller
 {
@@ -49,7 +51,10 @@ class OrderController extends Controller
                 'message' => 'Order placed successfully.',
                 'data' => new OrderResource($order),
             ], 201);
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
+            Log::error("CHECKOUT_ERROR: {$e->getMessage()} in {$e->getFile()}:{$e->getLine()}", [
+                'trace' => $e->getTraceAsString(),
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage(),
