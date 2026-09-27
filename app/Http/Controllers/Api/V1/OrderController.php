@@ -67,10 +67,16 @@ class OrderController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $orders = Order::where('user_id', $request->user()->id)
+        $query = Order::where('user_id', $request->user()->id)
             ->with(['items.product.primaryImage', 'items.product.sellerStore'])
-            ->latest()
-            ->paginate(10);
+            ->latest();
+
+        if ($request->filled('status') && $request->query('status') !== 'all') {
+            $query->where('status', $request->query('status'));
+        }
+
+        $perPage = min(max((int) ($request->query('per_page', 20)), 1), 50);
+        $orders = $query->paginate($perPage);
 
         return response()->json([
             'success' => true,
@@ -79,6 +85,7 @@ class OrderController extends Controller
                 'current_page' => $orders->currentPage(),
                 'last_page' => $orders->lastPage(),
                 'total' => $orders->total(),
+                'per_page' => $orders->perPage(),
             ]
         ], 200);
     }
