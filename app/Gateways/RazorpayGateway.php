@@ -19,9 +19,10 @@ class RazorpayGateway implements PaymentGatewayInterface
 
     public function __construct()
     {
-        $this->keyId = (string) config('services.razorpay.key_id', env('RAZORPAY_KEY_ID', ''));
-        $this->keySecret = (string) config('services.razorpay.key_secret', env('RAZORPAY_KEY_SECRET', ''));
-        $this->webhookSecret = (string) config('services.razorpay.webhook_secret', env('RAZORPAY_WEBHOOK_SECRET', ''));
+        $dbCreds = class_exists(\App\Models\Setting::class) ? \App\Models\Setting::get('razorpay_credentials') : null;
+        $this->keyId = (string) (config('services.razorpay.key_id') ?: (env('RAZORPAY_KEY_ID') ?: ($dbCreds['key_id'] ?? '')));
+        $this->keySecret = (string) (config('services.razorpay.key_secret') ?: (env('RAZORPAY_KEY_SECRET') ?: ($dbCreds['key_secret'] ?? '')));
+        $this->webhookSecret = (string) (config('services.razorpay.webhook_secret') ?: (env('RAZORPAY_WEBHOOK_SECRET') ?: ($dbCreds['webhook_secret'] ?? '')));
     }
 
     /**
