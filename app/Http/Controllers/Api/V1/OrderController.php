@@ -67,27 +67,60 @@ class OrderController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Order::where('user_id', $request->user()->id)
-            ->with(['items.product.primaryImage', 'items.product.sellerStore'])
-            ->latest();
+        try {
+            $user = $request->user();
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthenticated.',
+                ], 401);
+            }
 
-        if ($request->filled('status') && $request->query('status') !== 'all') {
-            $query->where('status', $request->query('status'));
+            $query = Order::where('user_id', $user->id)
+                ->with(['items'])
+                ->latest();
+
+            if ($request->filled('status') && $request->query('status') !== 'all') {
+                $query->where('status', $request->query('status'));
+            }
+
+            $perPage = min(max((int) ($request->query('per_page', 20)), 1), 50);
+            $orders = $query->paginate($perPage);
+
+            return response()->json([
+                'success' => true,
+                'data' => OrderResource::collection($orders),
+                'meta' => [
+                    'current_page' => $orders->currentPage(),
+                    'last_page' => $orders->lastPage(),
+                    'total' => $orders->total(),
+                    'per_page' => $orders->perPage(),
+                ]
+            ], 200);
+        } catch (Throwable $e) {
+            Log::error("ORDER_INDEX_ERROR: {$e->getMessage()} in {$e->getFile()}:{$e->getLine()}", [
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            try {
+                $fallbackOrders = Order::where('user_id', $request->user()?->id)->latest()->paginate(20);
+                return response()->json([
+                    'success' => true,
+                    'data' => OrderResource::collection($fallbackOrders),
+                    'meta' => [
+                        'current_page' => $fallbackOrders->currentPage(),
+                        'last_page' => $fallbackOrders->lastPage(),
+                        'total' => $fallbackOrders->total(),
+                        'per_page' => $fallbackOrders->perPage(),
+                    ]
+                ], 200);
+            } catch (Throwable $fallbackEx) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unable to load orders: ' . $e->getMessage(),
+                ], 500);
+            }
         }
-
-        $perPage = min(max((int) ($request->query('per_page', 20)), 1), 50);
-        $orders = $query->paginate($perPage);
-
-        return response()->json([
-            'success' => true,
-            'data' => OrderResource::collection($orders),
-            'meta' => [
-                'current_page' => $orders->currentPage(),
-                'last_page' => $orders->lastPage(),
-                'total' => $orders->total(),
-                'per_page' => $orders->perPage(),
-            ]
-        ], 200);
     }
 
     /**
@@ -119,22 +152,29 @@ class OrderController extends Controller
      */
     public function show(Request $request, string $orderNumber): JsonResponse
     {
-        $order = $this->findCustomerOrder($request->user()->id, $orderNumber, [
-            'items.product.primaryImage',
-            'items.product.sellerStore',
-        ]);
+        try {
+            $order = $this->findCustomerOrder($request->user()->id, $orderNumber, [
+                'items',
+            ]);
 
-        if (!$order) {
+            if (!$order) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Order not found.',
+                ], 404);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => new OrderResource($order),
+            ], 200);
+        } catch (Throwable $e) {
+            Log::error("ORDER_SHOW_ERROR: {$e->getMessage()} in {$e->getFile()}:{$e->getLine()}");
             return response()->json([
                 'success' => false,
-                'message' => 'Order not found.',
-            ], 404);
+                'message' => 'Unable to load order details: ' . $e->getMessage(),
+            ], 500);
         }
-
-        return response()->json([
-            'success' => true,
-            'data' => new OrderResource($order),
-        ], 200);
     }
 
     /**

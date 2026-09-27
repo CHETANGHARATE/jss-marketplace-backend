@@ -43,9 +43,9 @@ class OrderResource extends JsonResource
             'items' => OrderItemResource::collection($this->whenLoaded('items')),
             'cancellation' => $this->status === 'cancelled' ? [
                 'reason' => $this->cancellation_reason,
-                'at' => $this->cancelled_at?->toIso8601String(),
+                'at' => $this->cancelled_at instanceof \Carbon\CarbonInterface ? $this->cancelled_at->toIso8601String() : (is_string($this->cancelled_at) ? $this->cancelled_at : null),
             ] : null,
-            'created_at' => $this->created_at?->toIso8601String(),
+            'created_at' => $this->created_at instanceof \Carbon\CarbonInterface ? $this->created_at->toIso8601String() : (is_string($this->created_at) ? $this->created_at : null),
         ];
     }
 }

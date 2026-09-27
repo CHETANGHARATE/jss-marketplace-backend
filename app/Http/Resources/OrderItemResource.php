@@ -23,7 +23,7 @@ class OrderItemResource extends JsonResource
             'subtotal' => (float) $this->subtotal,
             'status' => $this->status,
             'cancellation_reason' => $this->cancellation_reason,
-            'cancelled_at' => $this->cancelled_at?->toIso8601String(),
+            'cancelled_at' => $this->cancelled_at instanceof \Carbon\CarbonInterface ? $this->cancelled_at->toIso8601String() : (is_string($this->cancelled_at) ? $this->cancelled_at : null),
         ];
     }
 }
