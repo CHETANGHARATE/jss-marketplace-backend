@@ -39,7 +39,9 @@ class OrderController extends Controller
                 $validated['billing_address_id'] ?? null,
                 $validated['payment_method'] ?? 'cod',
                 $validated['points_to_redeem'] ?? null,
-                $validated['coupon_code'] ?? null
+                $validated['coupon_code'] ?? null,
+                $validated['shipping_method'] ?? 'standard',
+                $validated['cart_items'] ?? null
             );
 
             return response()->json([

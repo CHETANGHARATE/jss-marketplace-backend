@@ -44,7 +44,9 @@ class CheckoutService
         ?int $billingAddressId = null,
         string $paymentMethod = 'cod',
         ?int $pointsToRedeem = null,
-        ?string $couponCode = null
+        ?string $couponCode = null,
+        string $shippingMethod = 'standard',
+        ?array $cartItems = null
     ): Order {
         return DB::transaction(function () use (
             $user,
@@ -52,13 +54,35 @@ class CheckoutService
             $billingAddressId,
             $paymentMethod,
             $pointsToRedeem,
-            $couponCode
+            $couponCode,
+            $shippingMethod,
+            $cartItems
         ) {
-            // 1. Fetch active cart
+            // 1. Fetch active cart (or synchronize if explicit cart_items provided)
             $cart = Cart::where('user_id', $user->id)
                 ->where('status', 'active')
                 ->with(['items.product.primaryImage'])
                 ->first();
+
+            if (!empty($cartItems)) {
+                if (!$cart) {
+                    $cart = Cart::create(['user_id' => $user->id, 'status' => 'active']);
+                }
+                $cart->items()->delete();
+                foreach ($cartItems as $cItem) {
+                    $prod = Product::approved()->find($cItem['product_id']);
+                    if ($prod) {
+                        CartItem::create([
+                            'cart_id' => $cart->id,
+                            'product_id' => $prod->id,
+                            'quantity' => (int) $cItem['quantity'],
+                            'unit_price' => (float) $prod->offer_price,
+                            'total_price' => (int) $cItem['quantity'] * (float) $prod->offer_price,
+                        ]);
+                    }
+                }
+                $cart = $cart->fresh(['items.product.primaryImage']);
+            }
 
             if (!$cart || $cart->items->isEmpty()) {
                 throw new Exception("Your shopping cart is empty.");
@@ -152,10 +176,14 @@ class CheckoutService
             }
 
             // 7. Calculate Final Order Amounts
-            $taxAmount = 0.00;
-            $shippingAmount = ($subtotal >= 499) ? 0.00 : 49.00; // Free shipping over ₹499
+            $taxAmount = round($subtotal * 0.18, 2); // 18% GST standard e-commerce calculation
+            $shippingAmount = match ($shippingMethod) {
+                'express' => 149.00,
+                'same_day' => 299.00,
+                default => ($subtotal > 1000) ? 0.00 : 99.00,
+            };
             $netDiscount = $discountAmount + $loyaltyDiscountAmount;
-            $totalAmount = max(0.00, $subtotal + $taxAmount + $shippingAmount - $netDiscount);
+            $totalAmount = max(0.00, round($subtotal + $taxAmount + $shippingAmount - $netDiscount, 2));
 
             // 8. Generate Unique Order Number
             $orderNumber = 'ORD-' . date('Ymd') . '-' . strtoupper(Str::random(5));
