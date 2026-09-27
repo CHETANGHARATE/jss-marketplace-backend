@@ -174,6 +174,14 @@ class Product extends Model
     }
 
     /**
+     * Seller / Vendor Store relationship.
+     */
+    public function sellerStore(): BelongsTo
+    {
+        return $this->belongsTo(VendorStore::class, 'seller_id', 'user_id');
+    }
+
+    /**
      * Product gallery images relationship.
      */
     public function images(): HasMany

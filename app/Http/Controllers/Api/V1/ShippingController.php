@@ -65,7 +65,17 @@ class ShippingController extends Controller
      */
     public function orderShipment(Request $request, string $orderNumber): JsonResponse
     {
-        $order = Order::where('user_id', $request->user()->id)->where('order_number', $orderNumber)->first();
+        $clean = ltrim(urldecode(trim($orderNumber)), '#');
+        $order = Order::where('user_id', $request->user()->id)
+            ->where(function ($q) use ($clean, $orderNumber) {
+                $q->where('order_number', $clean)
+                  ->orWhere('order_number', $orderNumber)
+                  ->orWhere('order_number', '#' . $clean);
+                if (is_numeric($clean)) {
+                    $q->orWhere('id', (int) $clean);
+                }
+            })
+            ->first();
 
         if (!$order) {
             return response()->json([

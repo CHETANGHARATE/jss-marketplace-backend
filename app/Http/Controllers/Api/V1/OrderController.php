@@ -84,14 +84,38 @@ class OrderController extends Controller
     }
 
     /**
+     * Resolve customer order by canonical public order number or numeric ID.
+     */
+    protected function findCustomerOrder(int $userId, string $orderIdentifier, array $with = []): ?Order
+    {
+        $clean = ltrim(urldecode(trim($orderIdentifier)), '#');
+
+        $query = Order::where('user_id', $userId)
+            ->where(function ($q) use ($clean, $orderIdentifier) {
+                $q->where('order_number', $clean)
+                  ->orWhere('order_number', $orderIdentifier)
+                  ->orWhere('order_number', '#' . $clean);
+                if (is_numeric($clean)) {
+                    $q->orWhere('id', (int) $clean);
+                }
+            });
+
+        if (!empty($with)) {
+            $query->with($with);
+        }
+
+        return $query->first();
+    }
+
+    /**
      * Display single order details by order number.
      */
     public function show(Request $request, string $orderNumber): JsonResponse
     {
-        $order = Order::where('user_id', $request->user()->id)
-            ->where('order_number', $orderNumber)
-            ->with(['items.product.primaryImage', 'items.product.sellerStore'])
-            ->first();
+        $order = $this->findCustomerOrder($request->user()->id, $orderNumber, [
+            'items.product.primaryImage',
+            'items.product.sellerStore',
+        ]);
 
         if (!$order) {
             return response()->json([
@@ -112,10 +136,14 @@ class OrderController extends Controller
     public function cancel(CancelOrderRequest $request, string $orderNumber): JsonResponse
     {
         try {
-            $order = Order::where('user_id', $request->user()->id)
-                ->where('order_number', $orderNumber)
-                ->with('items')
-                ->firstOrFail();
+            $order = $this->findCustomerOrder($request->user()->id, $orderNumber, ['items']);
+
+            if (!$order) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Order not found.',
+                ], 404);
+            }
 
             $cancelledOrder = $this->orderService->cancelOrder($order, $request->validated()['reason']);
 
@@ -142,10 +170,14 @@ class OrderController extends Controller
         ]);
 
         try {
-            $order = Order::where('user_id', $request->user()->id)
-                ->where('order_number', $orderNumber)
-                ->with('items.product.primaryImage')
-                ->firstOrFail();
+            $order = $this->findCustomerOrder($request->user()->id, $orderNumber, ['items.product.primaryImage']);
+
+            if (!$order) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Order not found.',
+                ], 404);
+            }
 
             $updatedOrder = $this->orderService->cancelOrderItem(
                 $order,
@@ -173,9 +205,17 @@ class OrderController extends Controller
     public function downloadInvoice(Request $request, string $orderNumber)
     {
         $user = $request->user();
+        $clean = ltrim(urldecode(trim($orderNumber)), '#');
 
         // Check ownership or admin privilege
-        $query = Order::where('order_number', $orderNumber)
+        $query = Order::where(function ($q) use ($clean, $orderNumber) {
+                $q->where('order_number', $clean)
+                  ->orWhere('order_number', $orderNumber)
+                  ->orWhere('order_number', '#' . $clean);
+                if (is_numeric($clean)) {
+                    $q->orWhere('id', (int) $clean);
+                }
+            })
             ->with(['items.product.primaryImage', 'items.product.sellerStore', 'user', 'shippingAddress', 'billingAddress']);
 
         if (!$user->hasRole('admin')) {
