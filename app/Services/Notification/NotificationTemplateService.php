@@ -74,15 +74,19 @@ class NotificationTemplateService
         $oldPrice = isset($data['old_price']) ? '₹' . number_format((float)$data['old_price'], 2) : '';
         $newPrice = isset($data['new_price']) ? '₹' . number_format((float)$data['new_price'], 2) : '';
         $storeName = $data['store_name'] ?? 'Seller';
+        $trackingNumber = $data['tracking_number'] ?? null;
+        $currentStock = $data['current_stock'] ?? 0;
 
-        $defaults = [
+        $matched = match ($templateKey) {
             'order_placed' => [
                 'subject' => "Order #{$orderNum} Confirmed! 🎉",
                 'body' => "Hello {$name}, your order #{$orderNum} for {$amount} is confirmed on JSS Marketplace and is being prepared.",
             ],
             'order_shipped' => [
                 'subject' => "Order #{$orderNum} Shipped 🚚",
-                'body' => "Hello {$name}, your order #{$orderNum} has been shipped with tracking number {$data['tracking_number']}.",
+                'body' => $trackingNumber
+                    ? "Hello {$name}, your order #{$orderNum} has been shipped with tracking number {$trackingNumber}."
+                    : "Hello {$name}, your order #{$orderNum} has been shipped and is on its way.",
             ],
             'order_delivered' => [
                 'subject' => "Order #{$orderNum} Delivered! 🎁",
@@ -110,14 +114,13 @@ class NotificationTemplateService
             ],
             'low_stock' => [
                 'subject' => "Low Stock Alert: {$productName} ⚠️",
-                'body' => "Urgent: '{$productName}' is low on stock ({$data['current_stock']} units remaining). Please replenish inventory.",
+                'body' => "Urgent: '{$productName}' is low on stock ({$currentStock} units remaining). Please replenish inventory.",
             ],
-        ];
-
-        $matched = $defaults[$templateKey] ?? [
-            'subject' => "JSS Marketplace Notification",
-            'body' => $data['message'] ?? "You have a new notification from JSS Marketplace.",
-        ];
+            default => [
+                'subject' => "JSS Marketplace Notification",
+                'body' => $data['message'] ?? "You have a new notification from JSS Marketplace.",
+            ],
+        };
 
         return [
             'subject' => $this->substituteVariables($matched['subject'], $data),
