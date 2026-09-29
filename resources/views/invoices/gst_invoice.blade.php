@@ -142,7 +142,7 @@
                     JSS Solutions Private Limited<br>
                     Plot No. 42, Tech Park Sector, Navi Mumbai, Maharashtra, 400705<br>
                     <strong>GSTIN:</strong> 27AABCJ9988K1Z5 | <strong>CIN:</strong> U72900MH2024PTC123456<br>
-                    <strong>Email:</strong> support@jsssolutions.in | <strong>Web:</strong> www.jsssolutions.in
+                    <strong>Email:</strong> support@jsssolutions.in | <strong>Customer Care:</strong> +91 99966 69884 | <strong>Web:</strong> www.jsssolutions.in
                 </div>
             </td>
             <td style="width: 45%;" class="text-right">
@@ -393,7 +393,7 @@
 
     <!-- Footer -->
     <div class="footer">
-        Thank you for shopping on JSS Marketplace! For support, visit www.jsssolutions.in/help-center or call toll-free +91 1800-JSS-SHOP.
+        Thank you for shopping on JSS Marketplace! For support, visit www.jsssolutions.in/help-center or call Customer Care at +91 99966 69884.
     </div>
 
 </body>

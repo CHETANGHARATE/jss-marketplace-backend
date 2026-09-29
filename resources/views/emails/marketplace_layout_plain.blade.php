@@ -49,7 +49,7 @@ View your order online: {{ $ctaUrl }}
 
 ----------------------------------------------------
 Need help with your order?
-Contact support: support@jsssolutions.in
-Visit: https://jsssolutions.in
+Customer Care: +91 99966 69884 | Email: support@jsssolutions.in
+Visit Help Center: https://jsssolutions.in/contact
 
 © {{ date('Y') }} JSSSolutions Marketplace. All rights reserved.

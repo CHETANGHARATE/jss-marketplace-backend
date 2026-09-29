@@ -392,7 +392,7 @@
             <!-- Footer with Platform Details -->
             <div class="footer">
                 <p style="font-weight: 700; color: #0f172a; margin-bottom: 6px;">JSSSolutions Marketplace — India Shops Here</p>
-                <p>Need help with your order? Visit our <a href="https://jsssolutions.in/contact" target="_blank">Help Center</a> or email <a href="mailto:support@jsssolutions.in">support@jsssolutions.in</a></p>
+                <p>Need help with your order? Visit our <a href="https://jsssolutions.in/contact" target="_blank">Help Center</a>, call Customer Care at <a href="tel:+919996669884">+91 99966 69884</a>, or email <a href="mailto:support@jsssolutions.in">support@jsssolutions.in</a></p>
                 <p style="margin-top: 12px; color: #94a3b8;">&copy; {{ date('Y') }} JSSSolutions Marketplace. All rights reserved.</p>
             </div>
         </div>
