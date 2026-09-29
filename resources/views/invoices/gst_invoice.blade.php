@@ -10,7 +10,7 @@
             size: a4 portrait;
         }
         body {
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-family: 'DejaVu Sans', sans-serif;
             font-size: 11px;
             line-height: 1.4;
             color: #1e293b;
@@ -176,21 +176,35 @@
     <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 12px 0;">
 
     <!-- Addresses & Vendor Information -->
+    @php
+        $shipping = is_array($order->shipping_address_snapshot)
+            ? $order->shipping_address_snapshot
+            : (is_string($order->shipping_address_snapshot) ? json_decode($order->shipping_address_snapshot, true) : []);
+        $billing = is_array($order->billing_address_snapshot)
+            ? $order->billing_address_snapshot
+            : (is_string($order->billing_address_snapshot) ? json_decode($order->billing_address_snapshot, true) : []);
+        if (empty($billing)) {
+            $billing = $shipping;
+        }
+
+        $primaryItem = $order->items?->first();
+        $sellerStore = $primaryItem?->product?->sellerStore ?? null;
+    @endphp
     <table class="info-table">
         <tr>
             <!-- Billed To -->
             <td style="width: 33.3%; padding-right: 6px;">
                 <div class="section-title">Billed To (Customer)</div>
                 <div class="info-box">
-                    <strong>{{ $order->billing_address_snapshot['name'] ?? $order->user->name ?? 'Customer' }}</strong><br>
-                    {{ $order->billing_address_snapshot['address_line_1'] ?? '' }}<br>
-                    @if(!empty($order->billing_address_snapshot['address_line_2']))
-                        {{ $order->billing_address_snapshot['address_line_2'] }}<br>
+                    <strong>{{ $billing['name'] ?? $order->user?->name ?? 'Customer' }}</strong><br>
+                    {{ $billing['address_line_1'] ?? '' }}<br>
+                    @if(!empty($billing['address_line_2']))
+                        {{ $billing['address_line_2'] }}<br>
                     @endif
-                    {{ $order->billing_address_snapshot['city'] ?? '' }}, {{ $order->billing_address_snapshot['state'] ?? '' }} - {{ $order->billing_address_snapshot['pin_code'] ?? '' }}<br>
-                    <strong>Phone:</strong> {{ $order->billing_address_snapshot['phone'] ?? $order->user->mobile ?? 'N/A' }}<br>
-                    @if(!empty($order->billing_address_snapshot['gst_number']))
-                        <strong>Buyer GSTIN:</strong> {{ $order->billing_address_snapshot['gst_number'] }}
+                    {{ $billing['city'] ?? '' }}{{ !empty($billing['state']) ? ', ' . $billing['state'] : '' }}{{ !empty($billing['pin_code']) ? ' - ' . $billing['pin_code'] : '' }}<br>
+                    <strong>Phone:</strong> {{ $billing['phone'] ?? $order->user?->phone ?? 'N/A' }}<br>
+                    @if(!empty($billing['gst_number']))
+                        <strong>Buyer GSTIN:</strong> {{ $billing['gst_number'] }}
                     @endif
                 </div>
             </td>
@@ -199,14 +213,14 @@
             <td style="width: 33.3%; padding: 0 3px;">
                 <div class="section-title">Shipped To (Delivery)</div>
                 <div class="info-box">
-                    <strong>{{ $order->shipping_address_snapshot['name'] ?? $order->user->name ?? 'Customer' }}</strong><br>
-                    {{ $order->shipping_address_snapshot['address_line_1'] ?? '' }}<br>
-                    @if(!empty($order->shipping_address_snapshot['address_line_2']))
-                        {{ $order->shipping_address_snapshot['address_line_2'] }}<br>
+                    <strong>{{ $shipping['name'] ?? $order->user?->name ?? 'Customer' }}</strong><br>
+                    {{ $shipping['address_line_1'] ?? '' }}<br>
+                    @if(!empty($shipping['address_line_2']))
+                        {{ $shipping['address_line_2'] }}<br>
                     @endif
-                    {{ $order->shipping_address_snapshot['city'] ?? '' }}, {{ $order->shipping_address_snapshot['state'] ?? '' }} - {{ $order->shipping_address_snapshot['pin_code'] ?? '' }}<br>
-                    <strong>Phone:</strong> {{ $order->shipping_address_snapshot['phone'] ?? $order->user->mobile ?? 'N/A' }}<br>
-                    <strong>Type:</strong> {{ ucfirst($order->shipping_address_snapshot['type'] ?? 'Home') }}
+                    {{ $shipping['city'] ?? '' }}{{ !empty($shipping['state']) ? ', ' . $shipping['state'] : '' }}{{ !empty($shipping['pin_code']) ? ' - ' . $shipping['pin_code'] : '' }}<br>
+                    <strong>Phone:</strong> {{ $shipping['phone'] ?? $order->user?->phone ?? 'N/A' }}<br>
+                    <strong>Type:</strong> {{ ucfirst($shipping['type'] ?? 'Home') }}
                 </div>
             </td>
 
@@ -214,14 +228,10 @@
             <td style="width: 33.3%; padding-left: 6px;">
                 <div class="section-title">Sold By (Seller)</div>
                 <div class="info-box">
-                    @php
-                        $primaryItem = $order->items->first();
-                        $sellerStore = $primaryItem && $primaryItem->product && $primaryItem->product->sellerStore ? $primaryItem->product->sellerStore : null;
-                    @endphp
-                    <strong>{{ $sellerStore->store_name ?? 'JSS Authorized Marketplace Vendor' }}</strong><br>
-                    {{ $sellerStore->city ?? 'Navi Mumbai' }}, {{ $sellerStore->state ?? 'Maharashtra' }}<br>
-                    <strong>GSTIN:</strong> {{ $sellerStore->gst_number ?? '27AABCJ9988K1Z5' }}<br>
-                    <strong>PAN:</strong> {{ $sellerStore->pan_number ?? 'AABCJ9988K' }}<br>
+                    <strong>{{ $sellerStore?->store_name ?? 'JSS Authorized Marketplace Vendor' }}</strong><br>
+                    {{ $sellerStore?->city ?? 'Navi Mumbai' }}, {{ $sellerStore?->state ?? 'Maharashtra' }}<br>
+                    <strong>GSTIN:</strong> {{ $sellerStore?->gst_number ?? '27AABCJ9988K1Z5' }}<br>
+                    <strong>PAN:</strong> {{ $sellerStore?->pan_number ?? 'AABCJ9988K' }}<br>
                     <strong>Fulfillment:</strong> Direct from Source
                 </div>
             </td>
@@ -267,7 +277,7 @@
                         @if($isCancelled)
                             <span style="color: #b91c1c; font-weight: bold; font-size: 8.5px; margin-left: 4px;">[CANCELLED]</span>
                         @endif
-                        <div style="font-size: 8.5px; color: #64748b;">Sold by: {{ $item->product->sellerStore->store_name ?? 'JSS Vendor' }}</div>
+                        <div style="font-size: 8.5px; color: #64748b;">Sold by: {{ $item->product?->sellerStore?->store_name ?? ($sellerStore?->store_name ?? 'JSS Authorized Vendor') }}</div>
                     </td>
                     <td class="text-center" style="font-size: 9px; color: #475569;">
                         {{ $item->product_sku ?? 'SKU-'.$item->product_id }}<br>

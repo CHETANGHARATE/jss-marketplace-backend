@@ -251,41 +251,63 @@ class OrderController extends Controller
      */
     public function downloadInvoice(Request $request, string $orderNumber)
     {
-        $user = $request->user();
-        $clean = ltrim(urldecode(trim($orderNumber)), '#');
+        try {
+            $user = $request->user();
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthenticated.',
+                ], 401);
+            }
 
-        // Check ownership or admin privilege
-        $query = Order::where(function ($q) use ($clean, $orderNumber) {
+            $clean = ltrim(urldecode(trim($orderNumber)), '#');
+
+            // Check ownership or admin privilege
+            $query = Order::where(function ($q) use ($clean, $orderNumber) {
                 $q->where('order_number', $clean)
                   ->orWhere('order_number', $orderNumber)
                   ->orWhere('order_number', '#' . $clean);
                 if (is_numeric($clean)) {
                     $q->orWhere('id', (int) $clean);
                 }
-            })
-            ->with(['items.product.primaryImage', 'items.product.sellerStore', 'user', 'shippingAddress', 'billingAddress']);
+            });
 
-        if (!$user->hasRole('admin')) {
-            $query->where('user_id', $user->id);
-        }
+            // Resilient eager loading
+            try {
+                $query->with(['items.product.sellerStore', 'user']);
+            } catch (Throwable $relEx) {
+                $query->with(['items', 'user']);
+            }
 
-        $order = $query->first();
+            if (!$user->isAdmin()) {
+                $query->where('user_id', $user->id);
+            }
 
-        if (!$order) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Order not found or access unauthorized.',
-            ], 404);
-        }
+            $order = $query->first();
 
-        try {
+            if (!$order) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Order not found or access unauthorized.',
+                ], 404);
+            }
+
+            if ($request->query('format') === 'html') {
+                return view('invoices.gst_invoice', compact('order'));
+            }
+
             $pdf = Pdf::loadView('invoices.gst_invoice', compact('order'));
             $pdf->setPaper('a4', 'portrait');
 
             $filename = "Tax_Invoice_{$order->order_number}.pdf";
 
             return $pdf->download($filename);
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
+            Log::error("INVOICE_PDF_GENERATION_FAILED: {$e->getMessage()} in {$e->getFile()}:{$e->getLine()}", [
+                'order' => $orderNumber,
+                'trace' => $e->getTraceAsString(),
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to generate PDF invoice: ' . $e->getMessage(),
