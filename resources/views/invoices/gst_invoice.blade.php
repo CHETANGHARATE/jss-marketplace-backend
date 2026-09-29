@@ -188,7 +188,9 @@
         }
 
         $primaryItem = $order->items?->first();
-        $sellerStore = $primaryItem?->product?->sellerStore ?? null;
+        $sellerStore = ($primaryItem && isset($vendorStores) && isset($vendorStores[$primaryItem->seller_id]))
+            ? $vendorStores[$primaryItem->seller_id]
+            : null;
     @endphp
     <table class="info-table">
         <tr>
@@ -277,7 +279,12 @@
                         @if($isCancelled)
                             <span style="color: #b91c1c; font-weight: bold; font-size: 8.5px; margin-left: 4px;">[CANCELLED]</span>
                         @endif
-                        <div style="font-size: 8.5px; color: #64748b;">Sold by: {{ $item->product?->sellerStore?->store_name ?? ($sellerStore?->store_name ?? 'JSS Authorized Vendor') }}</div>
+                        @php
+                            $itemStore = (isset($vendorStores) && isset($vendorStores[$item->seller_id]))
+                                ? $vendorStores[$item->seller_id]
+                                : $sellerStore;
+                        @endphp
+                        <div style="font-size: 8.5px; color: #64748b;">Sold by: {{ $itemStore?->store_name ?? 'JSS Authorized Vendor' }}</div>
                     </td>
                     <td class="text-center" style="font-size: 9px; color: #475569;">
                         {{ $item->product_sku ?? 'SKU-'.$item->product_id }}<br>

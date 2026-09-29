@@ -7,6 +7,7 @@ use App\Http\Requests\CancelOrderRequest;
 use App\Http\Requests\CheckoutProcessRequest;
 use App\Http\Resources\OrderResource;
 use App\Models\Order;
+use App\Models\VendorStore;
 use App\Services\CheckoutService;
 use App\Services\OrderService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -272,12 +273,8 @@ class OrderController extends Controller
                 }
             });
 
-            // Resilient eager loading
-            try {
-                $query->with(['items.product.sellerStore', 'user']);
-            } catch (Throwable $relEx) {
-                $query->with(['items', 'user']);
-            }
+            // Resilient query with items and user
+            $query->with(['items', 'user']);
 
             if (!$user->isAdmin()) {
                 $query->where('user_id', $user->id);
@@ -292,11 +289,17 @@ class OrderController extends Controller
                 ], 404);
             }
 
+            // Fetch vendor store information directly from VendorStore model
+            $sellerIds = $order->items ? $order->items->pluck('seller_id')->filter()->unique() : collect();
+            $vendorStores = $sellerIds->isNotEmpty() 
+                ? VendorStore::whereIn('user_id', $sellerIds)->get()->keyBy('user_id') 
+                : collect();
+
             if ($request->query('format') === 'html') {
-                return view('invoices.gst_invoice', compact('order'));
+                return view('invoices.gst_invoice', compact('order', 'vendorStores'));
             }
 
-            $pdf = Pdf::loadView('invoices.gst_invoice', compact('order'));
+            $pdf = Pdf::loadView('invoices.gst_invoice', compact('order', 'vendorStores'));
             $pdf->setPaper('a4', 'portrait');
 
             $filename = "Tax_Invoice_{$order->order_number}.pdf";
