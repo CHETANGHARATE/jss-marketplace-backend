@@ -17,7 +17,7 @@ class AnalyticsService
      */
     public function getDashboardOverview(?string $startDate = null, ?string $endDate = null): array
     {
-        $salesQuery = Order::whereIn('status', ['confirmed', 'processing', 'shipped', 'delivered']);
+        $salesQuery = Order::whereIn('status', ['confirmed', 'packed', 'processing', 'shipped', 'delivered']);
         $ordersQuery = Order::query();
 
         if ($startDate && $endDate) {
@@ -53,7 +53,7 @@ class AnalyticsService
                 fn ($q) => $q->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59']),
                 fn ($q) => $q->where('created_at', '>=', now()->subDays(30))
             )
-            ->whereIn('status', ['confirmed', 'processing', 'shipped', 'delivered'])
+            ->whereIn('status', ['confirmed', 'packed', 'processing', 'shipped', 'delivered'])
             ->groupBy('date')
             ->orderBy('date', 'ASC')
             ->get();
@@ -71,7 +71,7 @@ class AnalyticsService
             ->join('products', 'order_items.product_id', '=', 'products.id')
             ->join('categories', 'products.category_id', '=', 'categories.id')
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
-            ->whereIn('orders.status', ['confirmed', 'processing', 'shipped', 'delivered'])
+            ->whereIn('orders.status', ['confirmed', 'packed', 'processing', 'shipped', 'delivered'])
             ->when($startDate && $endDate, fn ($q) => $q->whereBetween('orders.created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59']))
             ->select(
                 'categories.id',
@@ -120,7 +120,7 @@ class AnalyticsService
      */
     public function getSalesAnalytics(?string $startDate = null, ?string $endDate = null): array
     {
-        $query = Order::whereIn('status', ['confirmed', 'processing', 'shipped', 'delivered']);
+        $query = Order::whereIn('status', ['confirmed', 'packed', 'processing', 'shipped', 'delivered']);
 
         if ($startDate && $endDate) {
             $query->whereBetween('created_at', [$startDate, $endDate]);
@@ -152,7 +152,7 @@ class AnalyticsService
                 fn ($q) => $q->whereBetween('created_at', [$startDate, $endDate]),
                 fn ($q) => $q->where('created_at', '>=', now()->subDays(30))
             )
-            ->whereIn('status', ['confirmed', 'processing', 'shipped', 'delivered'])
+            ->whereIn('status', ['confirmed', 'packed', 'processing', 'shipped', 'delivered'])
             ->groupBy('date')
             ->orderBy('date', 'ASC')
             ->get()
@@ -178,7 +178,7 @@ class AnalyticsService
         // Top 5 buyers by total spent
         $topCustomers = User::role('customer')
             ->withSum(['orders' => function ($q) {
-                $q->whereIn('status', ['confirmed', 'processing', 'shipped', 'delivered']);
+                $q->whereIn('status', ['confirmed', 'packed', 'processing', 'shipped', 'delivered']);
             }], 'total_amount')
             ->orderByDesc('orders_sum_total_amount')
             ->take(5)

@@ -32,7 +32,7 @@ class ReviewService
             ->whereHas('items', function ($q) use ($product) {
                 $q->where('product_id', $product->id);
             })
-            ->whereIn('status', ['delivered', 'confirmed', 'processing', 'shipped'])
+            ->whereIn('status', ['delivered', 'confirmed', 'packed', 'processing', 'shipped'])
             ->first();
 
         if (!$verifiedOrder) {

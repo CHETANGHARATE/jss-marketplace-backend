@@ -82,7 +82,12 @@ class OrderController extends Controller
                 ->latest();
 
             if ($request->filled('status') && $request->query('status') !== 'all') {
-                $query->where('status', $request->query('status'));
+                $status = strtolower($request->query('status'));
+                if ($status === 'packed') {
+                    $query->whereIn('status', ['packed', 'processing']);
+                } else {
+                    $query->where('status', $status);
+                }
             }
 
             $perPage = min(max((int) ($request->query('per_page', 20)), 1), 50);

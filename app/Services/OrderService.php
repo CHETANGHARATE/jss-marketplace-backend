@@ -185,10 +185,23 @@ class OrderService
      */
     public function updateOrderStatus(Order $order, string $newStatus): Order
     {
-        $order->update(['status' => $newStatus]);
+        $normalized = strtolower(trim($newStatus));
+
+        if ($order->status === 'cancelled') {
+            throw new \InvalidArgumentException("Cancelled orders cannot have their status updated.");
+        }
+
+        if ($order->status === 'delivered' && $normalized !== 'delivered') {
+            throw new \InvalidArgumentException("Delivered orders cannot be reverted to a previous status.");
+        }
+
+        // Map 'packed' to 'processing' for database compatibility
+        $dbStatus = ($normalized === 'packed') ? 'processing' : $normalized;
+
+        $order->update(['status' => $dbStatus]);
 
         // Trigger real-time multi-channel notification (Feature 39)
-        $this->notificationService->notifyOrderStatusUpdated($order, $newStatus);
+        $this->notificationService->notifyOrderStatusUpdated($order, $dbStatus);
 
         return $order->fresh(['items.product.primaryImage']);
     }

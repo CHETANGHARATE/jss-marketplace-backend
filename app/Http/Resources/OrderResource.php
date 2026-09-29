@@ -13,7 +13,7 @@ class OrderResource extends JsonResource
             'id' => $this->id,
             'order_number' => $this->order_number,
             'user_id' => $this->user_id,
-            'status' => $this->status,
+            'status' => $this->status === 'processing' ? 'packed' : $this->status,
             'payment_status' => $this->payment_status,
             'payment_method' => $this->payment_method,
             'shipping_address' => $this->shipping_address_snapshot,

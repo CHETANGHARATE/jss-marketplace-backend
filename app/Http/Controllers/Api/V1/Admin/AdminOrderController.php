@@ -26,8 +26,13 @@ class AdminOrderController extends Controller
     {
         $query = Order::with(['user', 'items.product']);
 
-        if ($request->filled('status')) {
-            $query->where('status', $request->input('status'));
+        if ($request->filled('status') && $request->input('status') !== 'all') {
+            $status = strtolower($request->input('status'));
+            if ($status === 'packed') {
+                $query->whereIn('status', ['packed', 'processing']);
+            } else {
+                $query->where('status', $status);
+            }
         }
 
         if ($request->filled('payment_status')) {
@@ -89,13 +94,25 @@ class AdminOrderController extends Controller
             ], 404);
         }
 
-        $validated = $request->validated();
-        $updatedOrder = $this->orderService->updateOrderStatus($order, $validated['status']);
+        try {
+            $validated = $request->validated();
+            $updatedOrder = $this->orderService->updateOrderStatus($order, $validated['status']);
 
-        return response()->json([
-            'success' => true,
-            'message' => "Order status updated to '{$validated['status']}'.",
-            'data' => new OrderResource($updatedOrder),
-        ], 200);
+            return response()->json([
+                'success' => true,
+                'message' => "Order status updated to '{$validated['status']}'.",
+                'data' => new OrderResource($updatedOrder),
+            ], 200);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update order status: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 }
