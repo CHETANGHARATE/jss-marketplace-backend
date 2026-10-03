@@ -111,7 +111,7 @@ class VendorStoreController extends Controller
                         'email' => $email,
                         'phone' => $phone,
                         'password' => \Illuminate\Support\Facades\Hash::make($password),
-                        'role' => \App\Enums\UserRole::SELLER,
+                        'role' => \App\Enums\UserRole::CUSTOMER,
                         'status' => \App\Enums\UserStatus::ACTIVE,
                         'email_verified_at' => now(),
                     ]);

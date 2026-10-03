@@ -33,6 +33,13 @@ class UserResource extends JsonResource
             'email_verified' => $this->email_verified_at !== null,
             'phone_verified' => $this->phone_verified_at !== null,
             'permissions' => $isSuperAdmin ? ['*'] : $this->getAllPermissions()->pluck('name')->values(),
+            'vendor_store' => $this->vendorStore ? [
+                'id' => $this->vendorStore->id,
+                'store_name' => $this->vendorStore->store_name,
+                'slug' => $this->vendorStore->slug,
+                'status' => $this->vendorStore->status,
+                'kyc_status' => $this->vendorStore->kyc_status,
+            ] : null,
             'created_at' => $this->created_at?->toIso8601String(),
         ];
     }

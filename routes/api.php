@@ -424,30 +424,36 @@ Route::prefix('v1')->group(function () {
 
         // Vendor Dashboard & Store Operations (Module 11)
         Route::prefix('vendor')->group(function () {
+            // Public / Applicant endpoints (accessible to applicants before approval)
             Route::post('/store', [VendorStoreController::class, 'register']);
             Route::get('/store', [VendorStoreController::class, 'currentStore']);
-            Route::get('/dashboard', [VendorStoreController::class, 'dashboard']);
-            Route::get('/products', [VendorStoreController::class, 'products']);
-            Route::post('/products', [VendorStoreController::class, 'storeProduct']);
-            Route::put('/products/{id}', [VendorStoreController::class, 'updateProduct']);
-            Route::post('/products/{id}/submit', [VendorStoreController::class, 'submitProductForReview']);
-            Route::post('/products/{id}/duplicate', [VendorStoreController::class, 'duplicateProduct']);
-            Route::delete('/products/{id}', [VendorStoreController::class, 'destroyProduct']);
-            Route::post('/subcategories', [SubcategoryController::class, 'storeVendorSubcategory']);
-            Route::get('/inventory', [VendorStoreController::class, 'inventory']);
-            Route::post('/inventory/update', [VendorStoreController::class, 'updateInventory']);
-            Route::get('/orders', [VendorStoreController::class, 'orders']);
-            Route::put('/orders/{id}/status', [VendorStoreController::class, 'updateOrderStatus']);
-            Route::get('/wallet', [VendorStoreController::class, 'wallet']);
-            Route::get('/analytics', [VendorStoreController::class, 'analytics']);
-            Route::post('/settlements/request', [VendorStoreController::class, 'requestSettlement']);
+            Route::get('/application-status', [VendorStoreController::class, 'currentStore']);
 
-            // Phase 4 Vendor B2B Operations
-            Route::get('/rfq/inbox', [RfqController::class, 'sellerInbox']);
-            Route::post('/rfq/{id}/quote', [QuotationController::class, 'submitQuotation']);
-            Route::post('/purchase-orders/{id}/accept', [PurchaseOrderController::class, 'accept']);
-            Route::patch('/samples/{id}/status', [B2BMarketplaceController::class, 'updateSampleStatus']);
-            Route::put('/products/{id}/tiers', [ProductTierController::class, 'syncTiers']);
+            // Protected Vendor Operations (Requires Super Admin Approval & Active Store)
+            Route::middleware('ensure.approved_vendor')->group(function () {
+                Route::get('/dashboard', [VendorStoreController::class, 'dashboard']);
+                Route::get('/products', [VendorStoreController::class, 'products']);
+                Route::post('/products', [VendorStoreController::class, 'storeProduct']);
+                Route::put('/products/{id}', [VendorStoreController::class, 'updateProduct']);
+                Route::post('/products/{id}/submit', [VendorStoreController::class, 'submitProductForReview']);
+                Route::post('/products/{id}/duplicate', [VendorStoreController::class, 'duplicateProduct']);
+                Route::delete('/products/{id}', [VendorStoreController::class, 'destroyProduct']);
+                Route::post('/subcategories', [SubcategoryController::class, 'storeVendorSubcategory']);
+                Route::get('/inventory', [VendorStoreController::class, 'inventory']);
+                Route::post('/inventory/update', [VendorStoreController::class, 'updateInventory']);
+                Route::get('/orders', [VendorStoreController::class, 'orders']);
+                Route::put('/orders/{id}/status', [VendorStoreController::class, 'updateOrderStatus']);
+                Route::get('/wallet', [VendorStoreController::class, 'wallet']);
+                Route::get('/analytics', [VendorStoreController::class, 'analytics']);
+                Route::post('/settlements/request', [VendorStoreController::class, 'requestSettlement']);
+
+                // Phase 4 Vendor B2B Operations
+                Route::get('/rfq/inbox', [RfqController::class, 'sellerInbox']);
+                Route::post('/rfq/{id}/quote', [QuotationController::class, 'submitQuotation']);
+                Route::post('/purchase-orders/{id}/accept', [PurchaseOrderController::class, 'accept']);
+                Route::patch('/samples/{id}/status', [B2BMarketplaceController::class, 'updateSampleStatus']);
+                Route::put('/products/{id}/tiers', [ProductTierController::class, 'syncTiers']);
+            });
         });
     });
 

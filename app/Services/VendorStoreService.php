@@ -18,9 +18,7 @@ class VendorStoreService
     public function registerStore(User $user, array $data): VendorStore
     {
         return DB::transaction(function () use ($user, $data) {
-            // Assign seller role safely across sanctum, web, and api guards
-            $user->assignRoleSafely(UserRole::SELLER->value);
-
+            // Do not grant seller role prematurely on submission; role is granted upon admin approval (verifyKYC)
             if (isset($data['owner_name']) && !empty($data['owner_name'])) {
                 $user->update(['name' => $data['owner_name']]);
             }
@@ -96,6 +94,8 @@ class VendorStoreService
 
             if (($kycStatus === 'verified' || $storeStatus === 'active') && $store->user) {
                 $store->user->assignRoleSafely(UserRole::SELLER->value);
+            } elseif ($storeStatus === 'rejected' && $store->user && $store->user->role === UserRole::SELLER) {
+                $store->user->assignRoleSafely(UserRole::CUSTOMER->value);
             }
 
             return $store->fresh();

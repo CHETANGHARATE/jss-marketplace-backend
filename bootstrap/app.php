@@ -23,6 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
             'ensure.admin_staff' => \App\Http\Middleware\EnsureAdminStaff::class,
+            'ensure.approved_vendor' => \App\Http\Middleware\EnsureApprovedVendor::class,
         ]);
 
         $middleware->redirectGuestsTo(function (Request $request) {

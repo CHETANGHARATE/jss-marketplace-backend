@@ -145,6 +145,24 @@ class AdminVendorController extends Controller
 
         $updatedStore = $this->storeService->verifyKYC($store, $validated['kyc_status']);
 
+        try {
+            $title = $validated['kyc_status'] === 'verified' ? 'Seller Application Approved!' : 'Seller KYC Update';
+            $msg = $validated['kyc_status'] === 'verified'
+                ? "Congratulations! Your seller store '{$store->store_name}' has been approved and activated."
+                : "Your seller KYC status has been updated to: '{$validated['kyc_status']}'.";
+            \App\Models\UserNotification::create([
+                'user_id' => $store->user_id,
+                'title'   => $title,
+                'message' => $msg,
+                'type'    => 'seller_kyc_update',
+                'data'    => [
+                    'store_id'   => $store->id,
+                    'status'     => $updatedStore->status,
+                    'kyc_status' => $validated['kyc_status'],
+                ],
+            ]);
+        } catch (\Throwable $e) {}
+
         return response()->json([
             'success' => true,
             'message' => "Vendor KYC status updated to '{$validated['kyc_status']}'.",
@@ -207,6 +225,19 @@ class AdminVendorController extends Controller
         $store = VendorStore::findOrFail($id);
         $updatedStore = $this->storeService->verifyKYC($store, 'verified');
 
+        try {
+            \App\Models\UserNotification::create([
+                'user_id' => $store->user_id,
+                'title'   => 'Seller Application Approved!',
+                'message' => "Congratulations! Your seller store '{$store->store_name}' has been approved by admin. You now have full access to the Vendor Dashboard.",
+                'type'    => 'seller_approved',
+                'data'    => [
+                    'store_id' => $store->id,
+                    'status'   => 'active',
+                ],
+            ]);
+        } catch (\Throwable $e) {}
+
         return response()->json([
             'success' => true,
             'message' => 'Vendor store approved and activated.',
@@ -220,10 +251,30 @@ class AdminVendorController extends Controller
     public function rejectStore(Request $request, int $id): JsonResponse
     {
         $store = VendorStore::findOrFail($id);
+        $reason = $request->input('reason', 'Your seller application did not meet our verification criteria.');
+
         $store->update([
-            'status' => 'rejected',
+            'status'     => 'pending',
             'kyc_status' => 'rejected',
         ]);
+
+        if ($store->user && $store->user->role === \App\Enums\UserRole::SELLER) {
+            $store->user->assignRoleSafely(\App\Enums\UserRole::CUSTOMER->value);
+        }
+
+        try {
+            \App\Models\UserNotification::create([
+                'user_id' => $store->user_id,
+                'title'   => 'Seller Application Status',
+                'message' => "Your seller store application for '{$store->store_name}' was not approved. Reason: {$reason}",
+                'type'    => 'seller_rejected',
+                'data'    => [
+                    'store_id' => $store->id,
+                    'status'   => 'rejected',
+                    'reason'   => $reason,
+                ],
+            ]);
+        } catch (\Throwable $e) {}
 
         return response()->json([
             'success' => true,
@@ -240,6 +291,19 @@ class AdminVendorController extends Controller
         $store = VendorStore::findOrFail($id);
         $store->update(['status' => 'suspended']);
 
+        try {
+            \App\Models\UserNotification::create([
+                'user_id' => $store->user_id,
+                'title'   => 'Seller Store Suspended',
+                'message' => "Your seller store '{$store->store_name}' has been temporarily suspended by administration.",
+                'type'    => 'seller_suspended',
+                'data'    => [
+                    'store_id' => $store->id,
+                    'status'   => 'suspended',
+                ],
+            ]);
+        } catch (\Throwable $e) {}
+
         return response()->json([
             'success' => true,
             'message' => 'Vendor store has been suspended.',
@@ -254,13 +318,26 @@ class AdminVendorController extends Controller
     {
         $store = VendorStore::findOrFail($id);
         $store->update([
-            'status' => 'active',
+            'status'     => 'active',
             'kyc_status' => 'verified',
         ]);
 
         if ($store->user) {
             $store->user->assignRoleSafely(\App\Enums\UserRole::SELLER->value);
         }
+
+        try {
+            \App\Models\UserNotification::create([
+                'user_id' => $store->user_id,
+                'title'   => 'Seller Store Activated',
+                'message' => "Your seller store '{$store->store_name}' has been activated. You now have full access to the Vendor Dashboard.",
+                'type'    => 'seller_activated',
+                'data'    => [
+                    'store_id' => $store->id,
+                    'status'   => 'active',
+                ],
+            ]);
+        } catch (\Throwable $e) {}
 
         return response()->json([
             'success' => true,

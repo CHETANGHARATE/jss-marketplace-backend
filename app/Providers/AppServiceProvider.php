@@ -33,9 +33,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Implicitly grant 'super_admin' full unrestricted access to all permissions
+        // Implicitly grant 'super_admin' and 'admin' full unrestricted access to all permissions
         Gate::before(function ($user, $ability) {
-            if ($user && ($user->hasRoleSafely('super_admin') || ($user->id === 1 && $user->role === UserRole::ADMIN))) {
+            if ($user && ($user->hasRoleSafely('super_admin') || $user->isAdmin() || ($user->role === UserRole::ADMIN))) {
                 return true;
             }
         });

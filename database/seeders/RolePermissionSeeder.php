@@ -31,6 +31,13 @@ class RolePermissionSeeder extends Seeder
             'manage-settings',
             'manage-commissions',
             'view-analytics',
+            'vendors.view',
+            'vendors.approve',
+            'vendors.suspend',
+            'vendors.edit',
+            'payments.view',
+            'payments.settle',
+            'payments.refund',
 
             // Seller permissions
             'manage-own-store',
