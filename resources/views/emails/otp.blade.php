@@ -94,7 +94,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>JSS Marketplace</h1>
+            <h1>JDS Mart</h1>
             <p>Security Verification Service</p>
         </div>
 
@@ -102,9 +102,9 @@
             <div class="title">Your One-Time Verification Code</div>
             <div class="text">
                 @if(($type ?? 'email_verification') === 'email_verification')
-                    Thank you for signing up with JSS Marketplace. Please use the 6-digit code below to verify your email address and activate your account.
+                    Thank you for signing up with JDS Mart. Please use the 6-digit code below to verify your email address and activate your account.
                 @else
-                    We received a request to reset your JSS Marketplace password. Please use the 6-digit code below to complete your password reset request.
+                    We received a request to reset your JDS Mart password. Please use the 6-digit code below to complete your password reset request.
                 @endif
             </div>
 
@@ -124,7 +124,7 @@
             @endif
 
             <div class="warning">
-                <strong>Important Security Note:</strong> This code is valid for <strong>10 minutes</strong> and can only be used once. Never share this code with anyone. JSS Marketplace staff will never ask for your verification code.
+                <strong>Important Security Note:</strong> This code is valid for <strong>10 minutes</strong> and can only be used once. Never share this code with anyone. JDS Mart staff will never ask for your verification code.
             </div>
 
             <div class="text" style="font-size: 13px; color: #64748b; margin-bottom: 0;">
@@ -133,7 +133,7 @@
         </div>
 
         <div class="footer">
-            &copy; {{ date('Y') }} JSS Marketplace Solutions. All rights reserved.
+            &copy; {{ date('Y') }} JDS Mart. All rights reserved.
         </div>
     </div>
 </body>

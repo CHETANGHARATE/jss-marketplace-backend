@@ -136,10 +136,10 @@
     <table class="header-table">
         <tr>
             <td style="width: 55%;">
-                <div class="logo-text">JSS<span style="color: #ea580c;">Solutions</span></div>
+                <div class="logo-text">JDS<span style="color: #ea580c;">Mart</span></div>
                 <div class="logo-sub">Multi-Vendor Marketplace</div>
                 <div style="margin-top: 4px; color: #475569; font-size: 10px;">
-                    JSS Solutions Private Limited<br>
+                    JDS Mart Private Limited<br>
                     Plot No. 42, Tech Park Sector, Navi Mumbai, Maharashtra, 400705<br>
                     <strong>GSTIN:</strong> 27AABCJ9988K1Z5 | <strong>CIN:</strong> U72900MH2024PTC123456<br>
                     <strong>Email:</strong> support@jsssolutions.in | <strong>Customer Care:</strong> +91 99966 69884 | <strong>Web:</strong> www.jsssolutions.in
@@ -343,7 +343,7 @@
                 </table>
 
                 <div class="terms">
-                    <strong>Declaration:</strong> We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct. Goods once sold are covered under JSS Marketplace 7-Day Replacement & Return Policy.
+                    <strong>Declaration:</strong> We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct. Goods once sold are covered under JDS Mart 7-Day Replacement & Return Policy.
                 </div>
             </td>
 
@@ -362,7 +362,7 @@
                     @endif
                     @if((float)$order->loyalty_discount_amount > 0)
                         <tr>
-                            <td style="color: #d97706;">JSS Coins Redeemed ({{ $order->loyalty_points_redeemed }} pts):</td>
+                            <td style="color: #d97706;">JDS Coins Redeemed ({{ $order->loyalty_points_redeemed }} pts):</td>
                             <td class="text-right font-bold" style="color: #d97706;">- ₹{{ number_format((float)$order->loyalty_discount_amount, 2) }}</td>
                         </tr>
                     @endif
@@ -383,7 +383,7 @@
                 </table>
 
                 <div style="margin-top: 15px; text-align: right; padding-right: 8px;">
-                    <div style="font-size: 9px; color: #64748b;">For JSS Solutions Private Limited</div>
+                    <div style="font-size: 9px; color: #64748b;">For JDS Mart Private Limited</div>
                     <div style="font-family: cursive; font-size: 14px; color: #1e3a8a; margin: 6px 0;">Authorized Signatory</div>
                     <div style="font-size: 8px; color: #94a3b8;">This is a computer-generated tax invoice and requires no physical signature.</div>
                 </div>
@@ -393,7 +393,7 @@
 
     <!-- Footer -->
     <div class="footer">
-        Thank you for shopping on JSS Marketplace! For support, visit www.jsssolutions.in/help-center or call Customer Care at +91 99966 69884.
+        Thank you for shopping on JDS Mart! For support, visit www.jsssolutions.in/help-center or call Customer Care at +91 99966 69884.
     </div>
 
 </body>

@@ -232,7 +232,7 @@
         <div class="container">
             <!-- Header with Official Marketplace Branding -->
             <div class="header">
-                <h1 class="header-title">JSSSolutions Marketplace</h1>
+                <h1 class="header-title">JDS Mart</h1>
                 <p class="header-slogan">India Shops Here</p>
             </div>
 
@@ -391,9 +391,9 @@
 
             <!-- Footer with Platform Details -->
             <div class="footer">
-                <p style="font-weight: 700; color: #0f172a; margin-bottom: 6px;">JSSSolutions Marketplace — India Shops Here</p>
+                <p style="font-weight: 700; color: #0f172a; margin-bottom: 6px;">JDS Mart — India Shops Here</p>
                 <p>Need help with your order? Visit our <a href="https://jsssolutions.in/contact" target="_blank">Help Center</a>, call Customer Care at <a href="tel:+919996669884">+91 99966 69884</a>, or email <a href="mailto:support@jsssolutions.in">support@jsssolutions.in</a></p>
-                <p style="margin-top: 12px; color: #94a3b8;">&copy; {{ date('Y') }} JSSSolutions Marketplace. All rights reserved.</p>
+                <p style="margin-top: 12px; color: #94a3b8;">&copy; {{ date('Y') }} JDS Mart. All rights reserved.</p>
             </div>
         </div>
     </div>
