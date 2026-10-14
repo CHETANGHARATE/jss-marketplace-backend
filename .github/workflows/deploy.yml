@@ -1,0 +1,171 @@
+
+name: JSS Marketplace Backend Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: jdsmart-backend-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy Laravel Backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate deployment secrets
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          set -eu
+          test -n "$VPS_HOST" || { echo "Missing VPS_HOST"; exit 1; }
+          test -n "$VPS_USER" || { echo "Missing VPS_USER"; exit 1; }
+          test -n "$VPS_SSH_KEY" || { echo "Missing VPS_SSH_KEY"; exit 1; }
+          test -n "$VPS_KNOWN_HOSTS" || { echo "Missing VPS_KNOWN_HOSTS"; exit 1; }
+          echo "Required deployment secrets are present."
+
+      - name: Configure SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          set -eu
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          ssh-keygen -y -f ~/.ssh/deploy_key >/dev/null
+          ssh-keygen -F "${{ secrets.VPS_HOST }}" -f ~/.ssh/known_hosts >/dev/null
+
+      - name: Deploy on VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          set -eu
+
+          ssh \
+            -i ~/.ssh/deploy_key \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "$VPS_USER@$VPS_HOST" 'bash -s' <<'REMOTE'
+          set -Eeuo pipefail
+
+          APP_DIR="/var/www/jdsmart-backend"
+          BRANCH="main"
+
+          cd "$APP_DIR"
+
+          if [ ! -f artisan ] || [ ! -f .env ]; then
+            echo "ERROR: Laravel project or production .env not found."
+            exit 1
+          fi
+
+          if [ ! -d .git ]; then
+            echo "ERROR: Git repository not found."
+            exit 1
+          fi
+
+          if [ -n "$(git status --porcelain --untracked-files=no | grep -vE '^[ MARCUD?!]{2} (bootstrap/cache/packages\.php|bootstrap/cache/services\.php)$' || true)" ]; then
+            echo "ERROR: Other tracked local changes detected. Stopping safely."
+            git status --short
+            exit 1
+          fi
+
+          if [ -n "$(git ls-files --others --exclude-standard)" ]; then
+            echo "ERROR: Untracked files detected. Review before deploying."
+            git status --short
+            exit 1
+          fi
+
+          if ! grep -q '^APP_KEY=.\+' .env; then
+            echo "ERROR: APP_KEY is missing from production .env."
+            exit 1
+          fi
+
+          if [ ! -f /home/jdsadmin/.ssh/jdsmart_deploy ]; then
+            echo "ERROR: Existing GitHub deploy key not found."
+            exit 1
+          fi
+
+          export GIT_SSH_COMMAND='ssh -i /home/jdsadmin/.ssh/jdsmart_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes'
+
+          git fetch origin "$BRANCH"
+
+          LOCAL_COMMIT="$(git rev-parse HEAD)"
+          REMOTE_COMMIT="$(git rev-parse "origin/$BRANCH")"
+
+          if [ "$LOCAL_COMMIT" = "$REMOTE_COMMIT" ]; then
+            echo "Already up to date."
+          elif git merge-base --is-ancestor "$LOCAL_COMMIT" "$REMOTE_COMMIT"; then
+            git merge --ff-only "origin/$BRANCH"
+          else
+            echo "ERROR: Local and remote history diverged. Stopping safely."
+            exit 1
+          fi
+
+          if ! php artisan --version; then
+            echo "ERROR: Laravel CLI is not working."
+            exit 1
+          fi
+
+          composer install \
+            --no-dev \
+            --prefer-dist \
+            --no-interaction \
+            --optimize-autoloader \
+            --no-scripts
+
+          php artisan package:discover --ansi
+
+          php artisan optimize:clear
+
+          if [ -L public/storage ] || [ -d public/storage ]; then
+            echo "Storage link/path already exists; leaving it untouched."
+          else
+            echo "ERROR: public/storage is missing. Check uploads configuration."
+            exit 1
+          fi
+
+          sudo systemctl reload php8.5-fpm
+          sudo nginx -t
+          sudo systemctl reload nginx
+
+          echo "Deployment steps completed."
+          REMOTE
+
+      - name: Verify API responds
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          set -eu
+          for attempt in $(seq 1 12); do
+            if curl --fail --silent --show-error \
+              --max-time 10 "https://api.jdsmart.in/" \
+              -o /dev/null; then
+              echo "API endpoint responded successfully."
+              exit 0
+            fi
+            echo "Health check attempt $attempt/12 failed."
+            sleep 5
+          done
+
+          echo "ERROR: API health check failed."
+          exit 1
+
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
