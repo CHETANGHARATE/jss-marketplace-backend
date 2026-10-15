@@ -125,16 +125,19 @@ jobs:
             exit 1
           fi
 
-          if ! php artisan --version; then
-            echo "ERROR: Laravel CLI is not working."
-            exit 1
-          fi
 
-          composer install --quiet --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
+           composer install --no-dev --prefer-dist --no-interaction --no-scripts --no-progress --optimize-autoloader
 
+           # Remove stale generated package discovery caches
+           rm -f bootstrap/cache/packages.php bootstrap/cache/services.php
+
+           # Rebuild package discovery using production dependencies
           php artisan package:discover --ansi
 
-          php artisan optimize:clear
+           # Confirm Laravel CLI works after dependency setup
+           php artisan --version
+           php artisan optimize:clear
+  
 
           if [ -L public/storage ] || [ -d public/storage ]; then
             echo "Storage link/path already exists; leaving it untouched."
