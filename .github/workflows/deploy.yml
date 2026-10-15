@@ -79,15 +79,23 @@ jobs:
             exit 1
           fi
 
-          if [ -n "$(git status --porcelain --untracked-files=no | grep -vE '^[ MARCUD?!]{2} (bootstrap/cache/packages\.php|bootstrap/cache/services\.php)$' || true)" ]; then
-            echo "ERROR: Other tracked local changes detected. Stopping safely."
-            git status --short
+          # 1. Reset tracked runtime-generated cache files to clean state before merge
+          git checkout -- bootstrap/cache/packages.php bootstrap/cache/services.php 2>/dev/null || true
+
+          # 2. Check for unexpected tracked local modifications (excluding expected bootstrap cache)
+          UNEXPECTED_TRACKED="$(git status --porcelain --untracked-files=no | grep -vE '^[ MARCUD?!]{2} (bootstrap/cache/packages\.php|bootstrap/cache/services\.php)$' || true)"
+          if [ -n "$UNEXPECTED_TRACKED" ]; then
+            echo "ERROR: Unexpected tracked local modifications detected. Stopping safely to avoid data loss:"
+            echo "$UNEXPECTED_TRACKED"
             exit 1
           fi
 
-          if [ -n "$(git ls-files --others --exclude-standard)" ]; then
-            echo "ERROR: Untracked files detected. Review before deploying."
-            git status --short
+          # 3. Check for unexpected untracked files
+          # Allow harmless server-specific files: editor swap files (*.swp, *.swo, *~), environment backups (.env*), and bootstrap cache (*.php)
+          UNEXPECTED_UNTRACKED="$(git ls-files --others --exclude-standard | grep -vE '(\.env(\..+)?|\.swp$|\.swo$|~$|^bootstrap/cache/.*\.php$)' || true)"
+          if [ -n "$UNEXPECTED_UNTRACKED" ]; then
+            echo "ERROR: Unexpected untracked files detected. Review before deploying:"
+            echo "$UNEXPECTED_UNTRACKED"
             exit 1
           fi
 
