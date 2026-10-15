@@ -140,9 +140,8 @@ jobs:
             exit 1
           fi
 
-          sudo systemctl reload php8.5-fpm
-          sudo nginx -t
-          sudo systemctl reload nginx
+          echo "Laravel cache commands completed."
+          echo "Skipping privileged service reloads; they require sudo authentication."
 
           echo "Deployment steps completed."
           REMOTE
