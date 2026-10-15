@@ -22,7 +22,7 @@ class EmailChannel
             ];
         }
 
-        $emailSubject = $subject ?: 'JSS Solutions Marketplace Update';
+        $emailSubject = $subject ?: (config('brand.name', 'JDS Mart') . ' Update');
 
         $viewData = [
             'subject' => $emailSubject,
@@ -37,7 +37,7 @@ class EmailChannel
                 $viewData,
                 function ($message) use ($email, $emailSubject) {
                     $message->to($email)
-                        ->from(config('mail.from.address', 'no-reply@jsssolutions.in'), config('mail.from.name', 'JSS Marketplace'))
+                        ->from(config('mail.from.address', 'no-reply@jsssolutions.in'), config('brand.name', config('mail.from.name', 'JDS Mart')))
                         ->subject($emailSubject);
                 }
             );
@@ -54,9 +54,11 @@ class EmailChannel
             Log::warning("EMAIL_CHANNEL_HTML_FAILED to [{$email}], trying raw fallback: " . $e->getMessage());
 
             try {
-                Mail::raw("{$emailSubject}\n\n{$body}\n\nThank you,\nJSS Solutions Marketplace Team\nhttps://jsssolutions.in", function ($message) use ($email, $emailSubject) {
+                $brandName = config('brand.name', 'JDS Mart');
+                $brandUrl = config('brand.website_url', 'https://jdsmart.in');
+                Mail::raw("{$emailSubject}\n\n{$body}\n\nThank you,\n{$brandName} Team\n{$brandUrl}", function ($message) use ($email, $emailSubject) {
                     $message->to($email)
-                        ->from(config('mail.from.address', 'no-reply@jsssolutions.in'), config('mail.from.name', 'JSS Marketplace'))
+                        ->from(config('mail.from.address', 'no-reply@jsssolutions.in'), config('brand.name', config('mail.from.name', 'JDS Mart')))
                         ->subject($emailSubject);
                 });
 

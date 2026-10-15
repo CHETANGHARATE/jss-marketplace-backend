@@ -210,7 +210,7 @@
     </div>
 
     <div class="footer">
-        Generated electronically via JSS Solutions Marketplace B2B Commerce Engine | https://jsssolutions.in
+        Generated electronically via JDS Mart B2B Commerce Engine | https://jsssolutions.in
     </div>
 </body>
 </html>

@@ -80,7 +80,7 @@ Route::get('/debug/mail-test', function (\Illuminate\Http\Request $request) {
             "OTP TEST\n\nCode: 123456",
             function ($message) use ($to) {
                 $message->to($to);
-                $message->from("no-reply@jsssolutions.in", "JSS Marketplace");
+                $message->from("no-reply@jsssolutions.in", config('brand.name', 'JDS Mart'));
                 $message->subject("Laravel Raw Mail Test");
             }
         );
@@ -140,7 +140,7 @@ Route::prefix('v1')->group(function () {
                 "OTP TEST\n\nCode: 123456",
                 function ($message) use ($to) {
                     $message->to($to);
-                    $message->from("no-reply@jsssolutions.in", "JSS Marketplace");
+                    $message->from("no-reply@jsssolutions.in", config('brand.name', 'JDS Mart'));
                     $message->subject("Laravel Raw Mail Test");
                 }
             );

@@ -230,7 +230,7 @@
             <td style="width: 33.3%; padding-left: 6px;">
                 <div class="section-title">Sold By (Seller)</div>
                 <div class="info-box">
-                    <strong>{{ $sellerStore?->store_name ?? 'JSS Authorized Marketplace Vendor' }}</strong><br>
+                    <strong>{{ $sellerStore?->store_name ?? 'JDS Authorized Marketplace Vendor' }}</strong><br>
                     {{ $sellerStore?->city ?? 'Navi Mumbai' }}, {{ $sellerStore?->state ?? 'Maharashtra' }}<br>
                     <strong>GSTIN:</strong> {{ $sellerStore?->gst_number ?? '27AABCJ9988K1Z5' }}<br>
                     <strong>PAN:</strong> {{ $sellerStore?->pan_number ?? 'AABCJ9988K' }}<br>
@@ -284,7 +284,7 @@
                                 ? $vendorStores[$item->seller_id]
                                 : $sellerStore;
                         @endphp
-                        <div style="font-size: 8.5px; color: #64748b;">Sold by: {{ $itemStore?->store_name ?? 'JSS Authorized Vendor' }}</div>
+                        <div style="font-size: 8.5px; color: #64748b;">Sold by: {{ $itemStore?->store_name ?? 'JDS Authorized Vendor' }}</div>
                     </td>
                     <td class="text-center" style="font-size: 9px; color: #475569;">
                         {{ $item->product_sku ?? 'SKU-'.$item->product_id }}<br>

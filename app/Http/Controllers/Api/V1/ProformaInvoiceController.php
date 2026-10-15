@@ -92,7 +92,7 @@ class ProformaInvoiceController extends Controller
                 'gstin' => $po->seller->vendorStore->gstin ?? null,
             ],
             'items_snapshot' => $itemsSnapshot,
-            'payment_instructions' => $validated['payment_instructions'] ?? 'Remit to JSS Solutions Marketplace Escrow Account via RTGS / NEFT / IMPS.',
+            'payment_instructions' => $validated['payment_instructions'] ?? 'Remit to JDS Mart Escrow Account via RTGS / NEFT / IMPS.',
             'valid_until' => $validated['valid_until'] ?? now()->addDays(15),
             'status' => 'generated',
         ]);

@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return response()->json([
-        'service' => 'JSS Solutions Marketplace API',
+        'service' => config('brand.name', 'JDS Mart') . ' API',
         'status' => 'online',
         'version' => '1.0.0',
     ]);

@@ -1,5 +1,5 @@
 ====================================================
-JSSSOLUTIONS MARKETPLACE — INDIA SHOPS HERE
+JDS MART — INDIA SHOPS HERE
 ====================================================
 
 {{ $subject ?? 'Order Update' }}
@@ -43,13 +43,13 @@ Total Amount: ₹{{ number_format((float)($data['amount'] ?? $data['total'] ?? 0
 
 ----------------------------------------------------
 @php
-    $ctaUrl = $data['cta_url'] ?? (!empty($data['order_number']) ? 'https://jsssolutions.in/orders/' . $data['order_number'] : 'https://jsssolutions.in');
+    $ctaUrl = $data['cta_url'] ?? (!empty($data['order_number']) ? 'https://jdsmart.in/orders/' . $data['order_number'] : 'https://jdsmart.in');
 @endphp
 View your order online: {{ $ctaUrl }}
 
 ----------------------------------------------------
 Need help with your order?
-Customer Care: +91 99966 69884 | Email: support@jsssolutions.in
-Visit Help Center: https://jsssolutions.in/contact
+Customer Care: {{ config('brand.support_phone', '+91 99966 69884') }} | Email: {{ config('brand.support_email', 'support@jsssolutions.in') }}
+Visit Help Center: {{ config('brand.help_center_url', 'https://jdsmart.in/help-center') }}
 
-© {{ date('Y') }} JSSSolutions Marketplace. All rights reserved.
+© {{ date('Y') }} {{ config('brand.name', 'JDS Mart') }}. All rights reserved.

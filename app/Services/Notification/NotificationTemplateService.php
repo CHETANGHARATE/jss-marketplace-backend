@@ -65,7 +65,7 @@ class NotificationTemplateService
     /**
      * Built-in fallback templates when DB template record is missing.
      */
-    protected function getBuiltInFallback(string $templateKey, string $channel, string $language, array $data): array
+    public function getBuiltInFallback(string $templateKey, string $channel, string $language, array $data): array
     {
         $name = $data['name'] ?? $data['user_name'] ?? 'Valued Customer';
         $orderNum = $data['order_number'] ?? '';
@@ -83,12 +83,12 @@ class NotificationTemplateService
         if ($language === 'hi') {
             $matched = match ($templateKey) {
                 'order_placed' => [
-                    'subject' => "ऑर्डर प्राप्त हुआ: #{$orderNum} — जेएसएस मार्केटप्लेस",
+                    'subject' => "ऑर्डर प्राप्त हुआ: #{$orderNum} — जेडीएस मार्ट",
                     'body' => "नमस्ते {$name},\n\nआपका ऑर्डर #{$orderNum} कुल {$amount} के लिए सफलतापूर्वक प्राप्त हो गया है। हमारी टीम इसे तैयार कर रही है।",
                 ],
                 'order_confirmed' => [
                     'subject' => "ऑर्डर कन्फर्म हुआ: #{$orderNum} — भुगतान सफल 🎉",
-                    'body' => "नमस्ते {$name},\n\nआपका ऑनलाइन भुगतान सफलतापूर्वक प्राप्त हो गया है और आपका ऑर्डर #{$orderNum} कुल राशि {$amount} के लिए कन्फर्म कर दिया गया है।",
+                    'body' => "नमस्ते {$name},\n\nआपका ऑनलाइन भुगतान सफलतापूर्वक प्राप्त हो गया है और आपका ऑर्डर #{$orderNum} कुल राशि {$amount} के लिए कन्फर्म कर दिया गया है।\n\nजेडीएस मार्ट चुनने के लिए धन्यवाद!",
                 ],
                 'order_payment_pending' => [
                     'subject' => "भुगतान प्रतीक्षित: ऑर्डर #{$orderNum}",
@@ -106,7 +106,7 @@ class NotificationTemplateService
                 ],
                 'order_delivered' => [
                     'subject' => "ऑर्डर डिलीवर हो गया! 🎁: #{$orderNum}",
-                    'body' => "नमस्ते {$name},\n\nआपका ऑर्डर #{$orderNum} सफलतापूर्वक डिलीवर कर दिया गया है। जेएसएस मार्केटप्लेस पर खरीदारी के लिए धन्यवाद!",
+                    'body' => "नमस्ते {$name},\n\nआपका ऑर्डर #{$orderNum} सफलतापूर्वक डिलीवर कर दिया गया है। जेडीएस मार्ट पर खरीदारी के लिए धन्यवाद!",
                 ],
                 'order_cancelled' => [
                     'subject' => "ऑर्डर रद्द किया गया: #{$orderNum}",
@@ -117,19 +117,19 @@ class NotificationTemplateService
                     'body' => "नमस्ते {$name},\n\nआपके रिटर्न #{$returnNum} के लिए {$amount} का रिफंड सफलतापूर्वक प्रोसेस कर दिया गया है।",
                 ],
                 default => [
-                    'subject' => "जेएसएस मार्केटप्लेस सूचना",
-                    'body' => $data['message'] ?? "आपको जेएसएस मार्केटप्लेस से एक नया संदेश प्राप्त हुआ है।",
+                    'subject' => "जेडीएस मार्ट सूचना",
+                    'body' => $data['message'] ?? "आपको जेडीएस मार्ट से एक नया संदेश प्राप्त हुआ है।",
                 ],
             };
         } elseif ($language === 'mr') {
             $matched = match ($templateKey) {
                 'order_placed' => [
-                    'subject' => "ऑर्डर नोंदवला: #{$orderNum} — जेएसएस मार्केटप्लेस",
+                    'subject' => "ऑर्डर नोंदवला: #{$orderNum} — जेडीएस मार्ट",
                     'body' => "नमस्कार {$name},\n\nतुमचा ऑर्डर #{$orderNum} एकूण {$amount} साठी यशस्वीरीत्या नोंदवला गेला आहे. आमची टीम त्याची तयारी करत आहे.",
                 ],
                 'order_confirmed' => [
                     'subject' => "ऑर्डर कन्फर्म झाला: #{$orderNum} — पेमेंट यशस्वी 🎉",
-                    'body' => "नमस्कार {$name},\n\nतुमचे ऑनलाइन पेमेंट यशस्वी झाले असून ऑर्डर #{$orderNum} एकूण रक्कम {$amount} साठी कन्फर्म झाली आहे.",
+                    'body' => "नमस्कार {$name},\n\nतुमचे ऑनलाइन पेमेंट यशस्वी झाले असून ऑर्डर #{$orderNum} एकूण रक्कम {$amount} साठी कन्फर्म झाली आहे.\n\nजेडीएस मार्ट निवडल्याबद्दल धन्यवाद!",
                 ],
                 'order_payment_pending' => [
                     'subject' => "पेमेंट बाकी आहे: ऑर्डर #{$orderNum}",
@@ -147,7 +147,7 @@ class NotificationTemplateService
                 ],
                 'order_delivered' => [
                     'subject' => "ऑर्डर वितरित झाला! 🎁: #{$orderNum}",
-                    'body' => "नमस्कार {$name},\n\nतुमचा ऑर्डर #{$orderNum} यशस्वीरीत्या वितरित झाला आहे. जेएसएस मार्केटप्लेसवर खरेदी केल्याबद्दल धन्यवाद!",
+                    'body' => "नमस्कार {$name},\n\nतुमचा ऑर्डर #{$orderNum} यशस्वीरीत्या वितरित झाला आहे. जेडीएस मार्टवर खरेदी केल्याबद्दल धन्यवाद!",
                 ],
                 'order_cancelled' => [
                     'subject' => "ऑर्डर रद्द करण्यात आला: #{$orderNum}",
@@ -158,20 +158,20 @@ class NotificationTemplateService
                     'body' => "नमस्कार {$name},\n\nतुमच्या परताव्यासाठी {$amount} चा रिफंड यशस्वीरीत्या खात्यात जमा करण्यात आला आहे.",
                 ],
                 default => [
-                    'subject' => "जेएसएस मार्केटप्लेस सूचना",
-                    'body' => $data['message'] ?? "आपल्याला जेएसएस मार्केटप्लेस कडून संदेश आला आहे.",
+                    'subject' => "जेडीएस मार्ट सूचना",
+                    'body' => $data['message'] ?? "आपल्याला जेडीएस मार्ट कडून संदेश आला आहे.",
                 ],
             };
         } else {
             // Default English
             $matched = match ($templateKey) {
                 'order_placed' => [
-                    'subject' => "Order Received: #{$orderNum} — JSS Marketplace",
-                    'body' => "Hello {$name},\n\nThank you for shopping with JSSSolutions Marketplace! Your order #{$orderNum} totaling {$amount} has been received and is being processed.",
+                    'subject' => "Order Received: #{$orderNum} — JDS Mart",
+                    'body' => "Hello {$name},\n\nThank you for shopping with JDS Mart! Your order #{$orderNum} totaling {$amount} has been received and is being processed.",
                 ],
                 'order_confirmed' => [
                     'subject' => "Order Confirmed — Payment Successful: #{$orderNum} 🎉",
-                    'body' => "Hello {$name},\n\nYour payment has been successfully verified! Your order #{$orderNum} for {$amount} is confirmed and is now being prepared for fulfillment.",
+                    'body' => "Hello {$name},\n\nGreat news! Your payment has been successfully verified and confirmed. Your order #{$orderNum} for {$amount} is confirmed and is now being prepared for fulfillment.\n\nThank you for choosing JDS Mart!",
                 ],
                 'order_payment_pending' => [
                     'subject' => "Payment Pending — Order #{$orderNum}",
@@ -189,7 +189,7 @@ class NotificationTemplateService
                 ],
                 'order_delivered' => [
                     'subject' => "Order Delivered! 🎁: #{$orderNum}",
-                    'body' => "Hello {$name},\n\nYour package for order #{$orderNum} has been successfully delivered. Thank you for shopping with JSSSolutions Marketplace!",
+                    'body' => "Hello {$name},\n\nYour package for order #{$orderNum} has been successfully delivered. Thank you for shopping with JDS Mart!",
                 ],
                 'order_cancelled' => [
                     'subject' => "Order Cancelled — #{$orderNum}",
@@ -217,14 +217,14 @@ class NotificationTemplateService
                 ],
                 'product_launch' => [
                     'subject' => "Now Available: {$productName}! 🚀",
-                    'body' => "Exciting news {$name}! The new product '{$productName}' has launched on JSS Marketplace.",
+                    'body' => "Exciting news {$name}! The new product '{$productName}' has launched on JDS Mart.",
                 ],
                 'store_update' => [
                     'subject' => "New from {$storeName}! 🏪",
-                    'body' => "Hello {$name}, {$storeName} just added new products and offers on JSS Marketplace.",
+                    'body' => "Hello {$name}, {$storeName} just added new products and offers on JDS Mart.",
                 ],
                 'abandoned_cart' => [
-                    'subject' => "Complete your purchase on JSS Marketplace 🛒",
+                    'subject' => "Complete your purchase on JDS Mart 🛒",
                     'body' => "Hello {$name}, you left items in your cart totaling {$amount}. Complete your order now before items sell out!",
                 ],
                 'low_stock' => [
@@ -232,8 +232,8 @@ class NotificationTemplateService
                     'body' => "Urgent: '{$productName}' is low on stock ({$currentStock} units remaining). Please replenish inventory.",
                 ],
                 default => [
-                    'subject' => "JSS Marketplace Notification",
-                    'body' => $data['message'] ?? "You have a new notification from JSS Marketplace.",
+                    'subject' => "JDS Mart Notification",
+                    'body' => $data['message'] ?? "You have a new notification from JDS Mart.",
                 ],
             };
         }

@@ -60,7 +60,7 @@ class RazorpayGateway implements PaymentGatewayInterface
                         'notes' => [
                             'order_id' => (string) $order->id,
                             'order_number' => (string) $order->order_number,
-                            'marketplace' => 'JSSSolutions Marketplace',
+                            'marketplace' => config('brand.name', 'JDS Mart'),
                         ],
                     ]);
 

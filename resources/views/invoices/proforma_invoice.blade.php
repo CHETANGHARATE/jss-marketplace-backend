@@ -221,11 +221,11 @@
 
     <div class="bank-box">
         <strong>Bank Remittance / Payment Instructions:</strong><br>
-        {{ $pi->payment_instructions ?? 'Please remit invoice total to JSS Marketplace Escrow Account via RTGS / NEFT / IMPS using invoice reference ' . $pi->proforma_number }}
+        {{ $pi->payment_instructions ?? 'Please remit invoice total to JDS Mart Escrow Account via RTGS / NEFT / IMPS using invoice reference ' . $pi->proforma_number }}
     </div>
 
     <div class="footer">
-        Generated electronically via JSS Solutions Marketplace B2B Engine | https://jsssolutions.in
+        Generated electronically via JDS Mart B2B Commerce Engine | https://jsssolutions.in
     </div>
 </body>
 </html>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ $subject ?? 'JSSSolutions Marketplace' }}</title>
+    <title>{{ $subject ?? config('brand.name', 'JDS Mart') }}</title>
     <style>
         /* Base Reset */
         body {
@@ -366,7 +366,7 @@
                         @endif
                         @if(!empty($data['discount']) && (float)$data['discount'] > 0)
                             <tr>
-                                <td style="color: #059669;">Discounts / JSS Coins:</td>
+                                <td style="color: #059669;">Discounts / JDS Coins:</td>
                                 <td style="text-align: right; font-weight: 700; color: #059669;">-₹{{ number_format((float)$data['discount'], 2) }}</td>
                             </tr>
                         @endif
@@ -381,7 +381,7 @@
 
                 <!-- Call to Action Button -->
                 @php
-                    $ctaUrl = $data['cta_url'] ?? (!empty($data['order_number']) ? 'https://jsssolutions.in/orders/' . $data['order_number'] : 'https://jsssolutions.in');
+                    $ctaUrl = $data['cta_url'] ?? (!empty($data['order_number']) ? 'https://jdsmart.in/orders/' . $data['order_number'] : 'https://jdsmart.in');
                     $ctaText = $data['cta_text'] ?? (!empty($data['order_number']) ? 'View Order Details' : 'Visit Marketplace');
                 @endphp
                 <div class="cta-wrapper">
@@ -391,9 +391,9 @@
 
             <!-- Footer with Platform Details -->
             <div class="footer">
-                <p style="font-weight: 700; color: #0f172a; margin-bottom: 6px;">JDS Mart — India Shops Here</p>
-                <p>Need help with your order? Visit our <a href="https://jsssolutions.in/contact" target="_blank">Help Center</a>, call Customer Care at <a href="tel:+919996669884">+91 99966 69884</a>, or email <a href="mailto:support@jsssolutions.in">support@jsssolutions.in</a></p>
-                <p style="margin-top: 12px; color: #94a3b8;">&copy; {{ date('Y') }} JDS Mart. All rights reserved.</p>
+                <p style="font-weight: 700; color: #0f172a; margin-bottom: 6px;">{{ config('brand.name', 'JDS Mart') }} — {{ config('brand.tagline', 'India Shops Here') }}</p>
+                <p>Need help with your order? Visit our <a href="{{ config('brand.help_center_url', 'https://jdsmart.in/help-center') }}" target="_blank">Help Center</a>, call Customer Care at <a href="tel:{{ str_replace(' ', '', config('brand.support_phone', '+919996669884')) }}">{{ config('brand.support_phone', '+91 99966 69884') }}</a>, or email <a href="mailto:{{ config('brand.support_email', 'support@jsssolutions.in') }}">{{ config('brand.support_email', 'support@jsssolutions.in') }}</a></p>
+                <p style="margin-top: 12px; color: #94a3b8;">&copy; {{ date('Y') }} {{ config('brand.name', 'JDS Mart') }}. All rights reserved.</p>
             </div>
         </div>
     </div>
